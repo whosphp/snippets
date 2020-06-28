@@ -277,11 +277,11 @@ let who_interval = setInterval(function () {
 					this.bat_auto_interval = setInterval(function () {
 						startBatFunc()
 					}, 6100)
-					console.log('enable auto battle')
+					log('enable auto battle')
 				} else {
 					if (this.bat_auto_interval) {
 						clearInterval(this.bat_auto_interval)
-						console.log('disable auto battle')
+						log('disable auto battle')
 					}
 				}
 			},
