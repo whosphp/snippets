@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      0.0.1
+// @version      0.0.2
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -120,6 +120,14 @@ let who_interval = setInterval(function () {
 				prop="exp"
 				label="Exp">
 		  	</el-table-column>
+		  	<el-table-column
+				label="Goods">l
+			  	<template slot-scope="scope">
+			  		<template v-if="scope.row.reward.goods">
+			  			<el-tag v-for="gd in scope.row.reward.goods" size="mini">{{ gd.gname }}</el-tag>
+					</v-if>
+			  	</template>
+			</el-table-column>
 		</el-table>
 </div>`)
 
@@ -143,6 +151,7 @@ let who_interval = setInterval(function () {
 				bat_total: 0,
 
 				batLogs: [],
+				logData: false,
 
 				nextLevelUpAt: '-',
 
@@ -160,12 +169,18 @@ let who_interval = setInterval(function () {
 
 			if (this.stores.autoBattle) {
 				log('auto start battle after refresh')
-				startBatFunc()
+				setTimeout(_ => {
+					startBatFunc()
+				}, 1000)
 			}
 
 			pomelo.on('onRoundBatEnd', res => {
 				if (res.data.win > 0) {
 					log('end')
+
+					if (this.logData) {
+						log(res.data)
+					}
 
 					if (this.stores.autoBattle) {
 						log('auto start')
@@ -173,15 +188,19 @@ let who_interval = setInterval(function () {
 					}
 
 					if (res.data.win === 1) {
+						if (! res.data.exp) {
+							log('全队无收益')
+						}
+
 						let myExp = res.data.exp.find(e => e.name === who_user.nickname)
 						let myReward = res.data.player_reward.find(e => e.name === who_user.nickname)
 						let now = moment()
 						if (this.batLogs.unshift({
 							atTime: now.format('HH:mm:ss'),
 							at: now,
-							exp: myExp.exp,
-							expRate: myExp.exp_rate,
-							reward: myReward,
+							exp: myExp ? myExp.exp : 0,
+							expRate: myExp ? myExp.exp_rate : 0,
+							reward: myReward ? myReward : [],
 						}) > 300) {
 							this.batLogs.pop()
 						}
