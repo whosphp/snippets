@@ -188,8 +188,13 @@ let who_interval = setInterval(function () {
 					}
 
 					if (res.data.win === 1) {
-						if (! res.data.exp) {
-							log('全队无收益')
+						if (res.data.exp.length === 0) {
+							console.log('全队无收益')
+							this.$notify({
+								title: '警告',
+								message: '全队无收益',
+								type: 'warning'
+							});
 						}
 
 						let myExp = res.data.exp.find(e => e.name === who_user.nickname)
