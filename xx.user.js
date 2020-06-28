@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      0.0.2-dev
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -70,12 +70,21 @@ let who_interval = setInterval(function () {
 		return
 	}
 
+	let _oldSelectBatIdFunc = selectBatIdFunc
+	selectBatIdFunc = function (cbatid, name) {
+		who_app.stores.lastBatId = cbatid
+		who_app.stores.lastBatName = name
+
+		_oldSelectBatIdFunc(cbatid, name)
+	}
+
 	setInterval(_ => {
 		initPageUserInfo()
 	}, 60000)
 
 	let who_user_id = user_id
 	let consolelog = true
+	let is_r = window.location.href.indexOf("?") > -1
 
 	console.log('start loading...')
 
@@ -141,6 +150,8 @@ let who_interval = setInterval(function () {
 		}
 	}
 
+	let stores = GM_getValue(getKey('stores'), {})
+
 	unsafeWindow.who_app = new Vue({
 		el: "#whoapp",
 		data: function () {
@@ -155,23 +166,43 @@ let who_interval = setInterval(function () {
 
 				nextLevelUpAt: '-',
 
-				stores: GM_getValue(getKey('stores'), {
-					autoBattle: false
-				})
+				stores: {
+					autoBattle: stores.hasOwnProperty("autoBattle") ? stores.autoBattle : false,
+					lastBatId: stores.hasOwnProperty("lastBatId") ? stores.lastBatId : "",
+					lastBatName: stores.hasOwnProperty("lastBatName") ? stores.lastBatName : ""
+				}
 			}
 		},
 		mounted() {
-			// 切换至 驿站组队
-			$('#team-tap').click()
+			this.turnOffSystemAutoBattle()
 
-			// 尝试创建队伍
-			createdTeamFunc()
+			/**
+			 * 系统重载会自动切换至驿站组队 并自动开始战斗
+			 * 所以当是系统重载时不做操作
+			 */
+			if (! is_r) {
+				if (this.stores.autoBattle) {
+					// 切换至 驿站组队
+					$('#team-tap').click()
 
-			if (this.stores.autoBattle) {
-				log('auto start battle after refresh')
-				setTimeout(_ => {
-					startBatFunc()
-				}, 1000)
+					setTimeout(_ => {
+						// 尝试创建队伍
+						createdTeamFunc()
+
+						// 如果当前没有选择地图, 默认使用上次进入的地图
+						if (! $("#bat-screen-id-h").val()) {
+							selectBatIdFunc(
+								this.stores.lastBatId,
+								this.stores.lastBatName
+							)
+						}
+
+						log('auto start battle after refresh')
+						setTimeout(_ => {
+							startBatFunc()
+						}, 1000)
+					}, 500)
+				}
 			}
 
 			pomelo.on('onRoundBatEnd', res => {
@@ -227,20 +258,21 @@ let who_interval = setInterval(function () {
 				}
 			}, 6000)
 		},
-		created() {
-			if (this.stores.autoBattle) {
-				log('auto start')
-				startBatFunc()
-			}
-		},
 		watch: {
 			"stores.autoBattle": function (n) {
-				// this.autoBattleHandler()
+				this.turnOffSystemAutoBattle()
+
 				if (n) {
 					log('auto start')
 					startBatFunc()
 				}
 
+				this.persistentStores()
+			},
+			"stores.lastBatId": function () {
+				this.persistentStores()
+			},
+			"stores.lastBatName": function () {
 				this.persistentStores()
 			}
 		},
@@ -277,17 +309,10 @@ let who_interval = setInterval(function () {
 			}
 		},
 		methods: {
-			autoBattleHandler() {
+			turnOffSystemAutoBattle() {
 				if (this.stores.autoBattle) {
-					this.bat_auto_interval = setInterval(function () {
-						startBatFunc()
-					}, 6100)
-					log('enable auto battle')
-				} else {
-					if (this.bat_auto_interval) {
-						clearInterval(this.bat_auto_interval)
-						log('disable auto battle')
-					}
+					// 关闭系统的循环开关
+					localStorage.removeItem('for_bat')
 				}
 			},
 			batReset() {
