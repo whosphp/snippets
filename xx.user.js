@@ -158,6 +158,11 @@ let who_interval = setInterval(function () {
 			// 尝试创建队伍
 			createdTeamFunc()
 
+			if (this.stores.autoBattle) {
+				log('auto start battle after refresh')
+				startBatFunc()
+			}
+
 			pomelo.on('onRoundBatEnd', res => {
 				if (res.data.win > 0) {
 					log('end')
