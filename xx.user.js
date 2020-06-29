@@ -147,7 +147,7 @@ let aaa = setInterval(function () {
 				label="Goods">
 			  	<template slot-scope="scope">
 			  		<template v-if="scope.row.reward.goods">
-			  			<el-tag v-for="gd in scope.row.reward.goods" size="mini">{{ gd.gname }}</el-tag>
+			  			<el-tag v-for="(gd, index) in scope.row.reward.goods" v-bind:key="index" size="mini">{{ gd.gname }}</el-tag>
 					</v-if>
 			  	</template>
 			</el-table-column>
