@@ -364,5 +364,5 @@ let aaa = setInterval(function () {
 			}
 		})
 	}, 1000)
-}, 100)
+}, 500)
 
