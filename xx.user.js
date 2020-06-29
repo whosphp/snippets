@@ -11,7 +11,7 @@
 // @grant        GM_getValue
 // @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.js
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
-// @run-at document-end
+// @run-at       document-end
 // ==/UserScript==
 
 unsafeWindow.who_user = null
@@ -84,7 +84,6 @@ let who_interval = setInterval(function () {
 
 	let who_user_id = user_id
 	let consolelog = true
-	let is_r = window.location.href.indexOf("?") > -1
 
 	console.log('start loading...')
 
@@ -176,33 +175,27 @@ let who_interval = setInterval(function () {
 		mounted() {
 			this.turnOffSystemAutoBattle()
 
-			/**
-			 * 系统重载会自动切换至驿站组队 并自动开始战斗
-			 * 所以当是系统重载时不做操作
-			 */
-			if (! is_r) {
-				if (this.stores.autoBattle) {
-					// 切换至 驿站组队
-					$('#team-tap').click()
+			if (this.stores.autoBattle) {
+				// 切换至 驿站组队
+				$('#team-tap').click()
 
+				setTimeout(_ => {
+					// 尝试创建队伍
+					createdTeamFunc()
+
+					// 如果当前没有选择地图, 默认使用上次进入的地图
+					if (! $("#bat-screen-id-h").val()) {
+						selectBatIdFunc(
+							this.stores.lastBatId,
+							this.stores.lastBatName
+						)
+					}
+
+					log('auto start battle after refresh')
 					setTimeout(_ => {
-						// 尝试创建队伍
-						createdTeamFunc()
-
-						// 如果当前没有选择地图, 默认使用上次进入的地图
-						if (! $("#bat-screen-id-h").val()) {
-							selectBatIdFunc(
-								this.stores.lastBatId,
-								this.stores.lastBatName
-							)
-						}
-
-						log('auto start battle after refresh')
-						setTimeout(_ => {
-							startBatFunc()
-						}, 1000)
-					}, 500)
-				}
+						startBatFunc()
+					}, 1000)
+				}, 500)
 			}
 
 			pomelo.on('onRoundBatEnd', res => {
