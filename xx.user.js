@@ -11,7 +11,7 @@
 // @grant        GM_getValue
 // @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.js
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
-// @run-at document-start
+// @run-at       document-start
 // ==/UserScript==
 
 let _href = window.location.href
