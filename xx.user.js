@@ -74,7 +74,7 @@ let aaa = setInterval(function () {
 		'use strict'
 
 		// 等待 pomelo 初始化 ws 链接
-		if (user_id !== undefined && who_user !== null) {
+		if (typeof user_id !== "undefined" && who_user !== null) {
 			clearInterval(who_interval)
 		}
 
