@@ -134,15 +134,17 @@ let aaa = setInterval(function () {
 		  	size="mini"
 		  	style="width: 100%">
 		  	<el-table-column
-				prop="atTime"
 				label="Time">
+				<template slot-scope="scope">
+					<el-tag :type="scope.row.win ? 'success' : 'danger'" size="mini" >{{ scope.row.atTime }}</el-tag>
+				</template>
 		  	</el-table-column>
 		  	<el-table-column
 				prop="exp"
 				label="Exp">
 		  	</el-table-column>
 		  	<el-table-column
-				label="Goods">l
+				label="Goods">
 			  	<template slot-scope="scope">
 			  		<template v-if="scope.row.reward.goods">
 			  			<el-tag v-for="gd in scope.row.reward.goods" size="mini">{{ gd.gname }}</el-tag>
@@ -238,6 +240,9 @@ let aaa = setInterval(function () {
 							startBatFunc()
 						}
 
+						let _batLog
+						let now = moment()
+
 						if (res.data.win === 1) {
 							if (res.data.exp.length === 0) {
 								console.log('全队无收益')
@@ -250,20 +255,32 @@ let aaa = setInterval(function () {
 
 							let myExp = res.data.exp.find(e => e.name === who_user.nickname)
 							let myReward = res.data.player_reward.find(e => e.name === who_user.nickname)
-							let now = moment()
-							if (this.batLogs.unshift({
+
+							_batLog = {
+								win: true,
 								atTime: now.format('HH:mm:ss'),
 								at: now,
 								exp: myExp ? myExp.exp : 0,
 								expRate: myExp ? myExp.exp_rate : 0,
 								reward: myReward ? myReward : [],
-							}) > 300) {
-								this.batLogs.pop()
 							}
 
 							this.bat_ok++
 						} else {
+							_batLog = {
+								win: false,
+								atTime: now.format('HH:mm:ss'),
+								at: now,
+								exp: 0,
+								expRate: 1,
+								reward: [],
+							}
+
 							this.bat_fail++
+						}
+
+						if (this.batLogs.unshift(_batLog) > 300) {
+							this.batLogs.pop()
 						}
 
 						this.bat_total++
