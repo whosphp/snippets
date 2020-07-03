@@ -122,8 +122,12 @@ let aaa = setInterval(function () {
 		  	inactive-color="#ff4949">
 		</el-switch>
 	</el-row>
-	<el-row>
-		<el-progress :text-inside="true" :stroke-width="24" :percentage="levelUpPercentage" :format="format" status="success"></el-progress>
+	<el-row>		
+		<el-button-group>
+			<el-button type="success" size="mini">{{ expPerSecond }}</el-button>
+			<el-button type="primary" size="mini">{{ nextLevelUpAt }}</el-button>
+			<el-button type="warning" size="mini">{{ levelUpPercentage + '%' }}</el-button>
+		</el-button-group>
 	</el-row>
 	<el-table
 			:show-header="false"
