@@ -116,6 +116,7 @@ let aaa = setInterval(function () {
 		</el-button-group>
 	</el-row>
 	<el-row>
+		<el-link type="danger" href="/login?is_r=1">Reload</el-link>
 		<el-switch
 			v-model="stores.autoBattle"
 		  	active-color="#13ce66"
