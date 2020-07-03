@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2-dev
+// @version      0.0.2
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -123,10 +123,7 @@ let aaa = setInterval(function () {
 		</el-switch>
 	</el-row>
 	<el-row>
-		<el-button-group>
-			<el-button type="success" size="mini">{{ expPerSecond }}</el-button>
-			<el-button type="primary" size="mini">{{ nextLevelUpAt }}</el-button>
-		</el-button-group>
+		<el-progress :text-inside="true" :stroke-width="24" :percentage="levelUpPercentage" :format="format" status="success"></el-progress>
 	</el-row>
 	<el-table
 			:show-header="false"
@@ -179,6 +176,7 @@ let aaa = setInterval(function () {
 					batDetailLogs: [],
 					logData: false,
 
+					levelUpPercentage: 0,
 					nextLevelUpAt: '-',
 
 					stores: {
@@ -260,7 +258,7 @@ let aaa = setInterval(function () {
 								win: true,
 								atTime: now.format('HH:mm:ss'),
 								at: now,
-								exp: myExp ? myExp.exp : 0,
+								exp: myExp ? Math.round(myExp.exp, 2) : 0,
 								expRate: myExp ? myExp.exp_rate : 0,
 								reward: myReward ? myReward : [],
 							}
@@ -290,6 +288,9 @@ let aaa = setInterval(function () {
 				setInterval(_ => {
 					if (this.expPerSecond > 0) {
 						let needExp = who_user.nextLevelGetExp - who_user.exp
+
+						this.levelUpPercentage = who_user.exp > who_user.nextLevelGetExp ? 100 : (who_user.exp*100/who_user.nextLevelGetExp).toFixed(2)
+
 						needExp = needExp < 0 ? 0 : needExp
 						this.nextLevelUpAt = moment().add(needExp / this.expPerSecond, 'second').format('DD HH:mm')
 					}
@@ -346,6 +347,9 @@ let aaa = setInterval(function () {
 				}
 			},
 			methods: {
+				format(percentage) {
+					return `${this.expPerSecond}(s) / ${this.nextLevelUpAt} / ${percentage}%`
+				},
 				turnOffSystemAutoBattle() {
 					if (this.stores.autoBattle) {
 						// 关闭系统的循环开关
