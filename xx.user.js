@@ -306,6 +306,16 @@ let aaa = setInterval(function () {
 					}
 				}
 
+				// 如果过去五分钟无战斗, 则尝试开启战斗
+				setInterval(_ => {
+					if (this.stores.autoBattle) {
+						if (this.batLogs.length === 0
+							|| moment().diff(this.batLogs[0].at, 'seconds') >= 300) {
+							startBatFunc()
+						}
+					}
+				}, 300000)
+
 				pomelo.on('onRoundBatEnd', res => {
 					if (res.data.win > 0) {
 						log('end')
