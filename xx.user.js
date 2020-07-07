@@ -1,16 +1,19 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      1.0.0
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
 // @exclude      *://yundingxx.com:3366/login*
+// @updateURL    https://raw.githubusercontent.com/whosphp/snippets/master/xx.user.js
+// @downloadURL  https://raw.githubusercontent.com/whosphp/snippets/master/xx.user.js
 // @grant        unsafeWindow
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.js
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
+// @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
 // @run-at       document-start
 // ==/UserScript==
 
@@ -101,6 +104,13 @@ let aaa = setInterval(function () {
 		console.log('start loading...')
 
 		$('head').append(`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/theme-chalk/index.css">`)
+		$('head').append(`
+<style>
+	.el-card__header {
+		padding: 5px;;
+	}
+</style>
+`)
 
 		console.log('stop loading')
 
@@ -130,6 +140,64 @@ let aaa = setInterval(function () {
 			<el-button type="warning" size="mini">{{ levelUpPercentage + '%' }}</el-button>
 		</el-button-group>
 	</el-row>
+	<el-card class="box-card" :body-style="{ padding: '5px' }">
+		<div slot="header" class="clearfix">
+			<span>自动FARM</span>
+			<el-switch
+				v-model="stores.autoFarm"
+				active-color="#13ce66"
+				inactive-color="#ff4949">
+			</el-switch>
+			<el-dialog title="请选择Fallback" :visible.sync="dialogFallbackFormVisible" :append-to-body="true">
+				<el-form>
+					<el-form-item label="fallback">
+						<el-select v-model="stores.fallbackId">
+							<el-option v-for="screen in battleScreens" :label="screen.name" :value="screen._id"></el-option>
+						</el-select>
+					</el-form-item>
+				</el-form>
+				<div slot="footer" class="dialog-footer">
+					<el-button type="primary" @click="dialogFallbackFormVisible = false">确定</el-button>
+				</div>
+			</el-dialog>
+			
+			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text" 
+				@click="dialogScheduleFormVisible = true">
+				新增
+			</el-button>
+			<el-dialog title="新增Schedule" :visible.sync="dialogScheduleFormVisible" :append-to-body="true">
+				<el-form :model="form">
+					<el-form-item label="时间">
+						<el-time-select
+							:picker-options="{
+								start: '00:00',
+								step: '00:15',
+								end: '23:59'
+							}"
+							v-model="form.screenTime"
+							placeholder="选择时间">
+						</el-time-select>
+					</el-form-item>
+					<el-form-item label="副本">
+						<el-select v-model="form.screenId">
+							<el-option v-for="screen in battleScreens" :label="screen.name" :value="screen._id"></el-option>
+						</el-select>
+					</el-form-item>
+				</el-form>
+
+				<div slot="footer" class="dialog-footer">
+					<el-button type="primary" @click="dialogScheduleFormVisible = false">取消</el-button>
+					<el-button type="success" @click="addNewSchedule">确定</el-button>
+				</div>
+			</el-dialog>
+	  	</div>
+	  	<div v-for="sch in stores.battleSchedules" class="text item">
+			{{ sch.time + ' : ' + sch.screenName }}
+	  	</div>
+	  	<div v-if="stores.fallbackId">
+	  		fallback : {{ fallbackName }} <el-button @click="dialogFallbackFormVisible = true">修改</el-button>
+		</div>
+	</el-card>
 	<el-table
 			:show-header="false"
 		  	:data="latestBatchLogs"
@@ -179,13 +247,25 @@ let aaa = setInterval(function () {
 
 					batLogs: [],
 					batDetailLogs: [],
+					battleScreens: [],
+					dialogScheduleFormVisible: false,
+					dialogFallbackFormVisible: false,
+					form: {
+						screenId: '',
+						screenTime: '',
+					},
 					logData: false,
 
 					levelUpPercentage: 0,
 					nextLevelUpAt: '-',
 
+					laterInstances: [],
+
 					stores: {
 						autoBattle: stores.hasOwnProperty("autoBattle") ? stores.autoBattle : false,
+						battleSchedules: stores.hasOwnProperty("battleSchedules") ? stores.battleSchedules : [],
+						fallbackId: stores.hasOwnProperty("fallbackId") ? stores.fallbackId : "",
+						autoFarm: stores.hasOwnProperty("autoFarm") ? stores.autoFarm : false,
 						lastBatId: stores.hasOwnProperty("lastBatId") ? stores.lastBatId : "",
 						lastBatName: stores.hasOwnProperty("lastBatName") ? stores.lastBatName : ""
 					}
@@ -193,6 +273,9 @@ let aaa = setInterval(function () {
 			},
 			mounted() {
 				this.turnOffSystemAutoBattle()
+
+				later.date.localTime()
+				this.applyBattleSchedules()
 
 				/**
 				 * 系统重载会自动切换至驿站组队 并自动开始战斗
@@ -254,6 +337,11 @@ let aaa = setInterval(function () {
 									message: '全队无收益',
 									type: 'warning'
 								});
+
+								// 无收益自动切换为fallback副本
+								if (this.stores.autoFarm && this.stores.fallbackId) {
+									selectBatIdFunc(this.fallbackId, this.fallbackName)
+								}
 							}
 
 							let myExp = res.data.exp.find(e => e.name === who_user.nickname)
@@ -300,8 +388,29 @@ let aaa = setInterval(function () {
 						this.nextLevelUpAt = moment().add(needExp / this.expPerSecond, 'second').format('DD HH:mm')
 					}
 				}, 6000)
+
+
+				let mid = typeof global === "undefined" ? 1 : (typeof global.mid !== "undefined" ? global.mid : 1)
+				pomelo.request("connector.teamHandler.getTeamList", {
+					mid,
+				}, res => {
+					if (res.code === 200) {
+						this.battleScreens = res.data.screens
+					}
+				})
 			},
 			watch: {
+				"stores.autoFarm": function () {
+					if (this.stores.autoFarm) {
+						if (! this.stores.fallbackId) {
+							this.dialogFallbackFormVisible = true
+
+							this.stores.autoFarm = false
+						}
+					}
+
+					this.persistentStores()
+				},
 				"stores.autoBattle": function (n) {
 					this.turnOffSystemAutoBattle()
 
@@ -317,9 +426,32 @@ let aaa = setInterval(function () {
 				},
 				"stores.lastBatName": function () {
 					this.persistentStores()
+				},
+				"stores.battleSchedules": function () {
+					this.persistentStores()
+				},
+				"stores.fallbackId": function () {
+					this.persistentStores()
 				}
 			},
 			computed: {
+				battleScreensKeyById() {
+					let data = {}
+					this.battleScreens.map(s => {
+						data[s._id] = s
+					})
+
+					return data
+				},
+				fallbackName() {
+					let screen = this.battleScreens.find(s => s._id === this.stores.fallbackId)
+
+					if (typeof screen === "undefined") {
+						return '';
+					}
+
+					return screen.name
+				},
 				bat_rate() {
 					if (this.bat_total) {
 						return (this.bat_ok * 100 / this.bat_total).toFixed(1)
@@ -352,6 +484,17 @@ let aaa = setInterval(function () {
 				}
 			},
 			methods: {
+				addNewSchedule() {
+					this.stores.battleSchedules.push({
+						time: this.form.screenTime,
+						screenId: this.form.screenId,
+						screenName: this.battleScreensKeyById[this.form.screenId].name
+					})
+
+					this.form.screenId = ''
+					this.form.screenTime = ''
+					this.dialogScheduleFormVisible = false
+				},
 				format(percentage) {
 					return `${this.expPerSecond}(s) / ${this.nextLevelUpAt} / ${percentage}%`
 				},
@@ -369,6 +512,19 @@ let aaa = setInterval(function () {
 				persistentStores() {
 					log('persistentStores...')
 					GM_setValue(getKey('stores'), this.stores)
+				},
+				applyBattleSchedules() {
+					this.laterInstances.map(instance => instance.clear())
+
+					this.stores.battleSchedules.map(s => {
+						console.log('load auto farm screen ' + s.screenName)
+						this.laterInstances.push(
+							later.setInterval(function () {
+								console.log('auto select screen ' + s.screenName)
+								selectBatIdFunc(s.screenId, s.screenName)
+							}, later.parse.text(`at ${s.time}`))
+						)
+					})
 				}
 			}
 		})
