@@ -143,9 +143,9 @@ let aaa = setInterval(function () {
 				inactive-color="#ff4949">
 			</el-switch>
 			<el-dialog title="请选择Fallback" :visible.sync="dialogFallbackFormVisible" :append-to-body="true">
-				<el-form>
+				<el-form label-width="120px">
 					<el-form-item label="fallback">
-						<el-select v-model="stores.fallbackId">
+						<el-select v-model="stores.fallbackId" style="width: 100%;">
 							<el-option v-for="screen in battleScreens" :label="screen.name" :value="screen._id"></el-option>
 						</el-select>
 					</el-form-item>
@@ -164,9 +164,9 @@ let aaa = setInterval(function () {
 				新增
 			</el-button>
 			<el-dialog title="新增Schedule" :visible.sync="dialogScheduleFormVisible" :append-to-body="true">
-				<el-form :model="form">
+				<el-form :model="form" label-width="120px">
 					<el-form-item label="时间">
-						<el-time-select
+						<el-time-select style="width: 100%;"
 							:picker-options="{
 								start: '00:00',
 								step: '00:15',
@@ -177,7 +177,7 @@ let aaa = setInterval(function () {
 						</el-time-select>
 					</el-form-item>
 					<el-form-item label="副本">
-						<el-select v-model="form.screenId">
+						<el-select v-model="form.screenId" style="width: 100%;">
 							<el-option v-for="screen in battleScreens" :label="screen.name" :value="screen._id"></el-option>
 						</el-select>
 					</el-form-item>
