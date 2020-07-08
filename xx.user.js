@@ -16,12 +16,6 @@
 // @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
 // @run-at       document-start
 // ==/UserScript==
-
-let _href = window.location.href
-console.log('real href is ' + _href)
-
-unsafeWindow.who_is_r = window.location.href.indexOf("is_r") > -1;
-
 let aaa = setInterval(function () {
 	if (typeof initPageUserInfo !== 'function') {
 		console.log('wait necessary functions to load...')
@@ -276,35 +270,6 @@ let aaa = setInterval(function () {
 
 				later.date.localTime()
 				this.applyBattleSchedules()
-
-				/**
-				 * 系统重载会自动切换至驿站组队 并自动开始战斗
-				 * 所以当是系统重载时不做操作
-				 */
-				if (! who_is_r) {
-					if (this.stores.autoBattle) {
-						// 切换至 驿站组队
-						$('#team-tap').click()
-
-						setTimeout(_ => {
-							// 尝试创建队伍
-							createdTeamFunc()
-
-							// 如果当前没有选择地图, 默认使用上次进入的地图
-							if (! $("#bat-screen-id-h").val()) {
-								selectBatIdFunc(
-									this.stores.lastBatId,
-									this.stores.lastBatName
-								)
-							}
-
-							log('auto start battle after refresh')
-							setTimeout(_ => {
-								startBatFunc()
-							}, 1000)
-						}, 500)
-					}
-				}
 
 				// 如果过去五分钟无战斗, 则尝试开启战斗
 				setInterval(_ => {
