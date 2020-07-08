@@ -156,6 +156,10 @@ let aaa = setInterval(function () {
 			</el-dialog>
 			
 			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text" 
+				@click="stores.battleSchedules = []">
+				重置
+			</el-button>
+			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text" 
 				@click="dialogScheduleFormVisible = true">
 				新增
 			</el-button>
