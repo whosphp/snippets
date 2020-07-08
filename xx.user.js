@@ -350,7 +350,7 @@ let aaa = setInterval(function () {
 
 								// 无收益自动切换为fallback副本
 								if (this.stores.autoFarm && this.stores.fallbackId) {
-									selectBatIdFunc(this.fallbackId, this.fallbackName)
+									selectBatIdFunc(this.stores.fallbackId, this.fallbackName)
 								}
 							}
 
