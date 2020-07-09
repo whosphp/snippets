@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      1.0.1
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -105,6 +105,27 @@ let aaa = setInterval(function () {
 	}
 </style>
 `)
+
+		// 顶端经验条
+		$(`
+<div style="
+    border-top: 3px dotted burlywood;
+    float: left;
+    width: 100%;
+    position: absolute;
+    left: 0;
+">
+    
+</div>
+<div id="whoExpBar" style="
+    width: 0;
+    float: left;
+    height: 3px;
+    position: absolute;
+    left: 0;
+    background-color: green;
+"></div>
+		`).insertAfter('.top-bar')
 
 		console.log('stop loading')
 
@@ -379,6 +400,9 @@ let aaa = setInterval(function () {
 				})
 			},
 			watch: {
+				"levelUpPercentage": function (n) {
+					$('#whoExpBar').css('width', `${n}%`)
+				},
 				"stores.autoFarm": function () {
 					if (this.stores.autoFarm) {
 						if (! this.stores.fallbackId) {
