@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -217,30 +217,37 @@ let aaa = setInterval(function () {
 	  		fallback : {{ fallbackName }} <el-button @click="dialogFallbackFormVisible = true">修改</el-button>
 		</div>
 	</el-card>
-	<el-table
-			:show-header="false"
+	<el-table :show-header="false"
 		  	:data="latestBatchLogs"
 		  	size="mini"
 		  	style="width: 100%">
-		  	<el-table-column
-				label="Time">
-				<template slot-scope="scope">
-					<el-tag :type="scope.row.win ? 'success' : 'danger'" size="mini" >{{ scope.row.atTime }}</el-tag>
+		<el-table-column
+			label="Time">
+			<template slot-scope="scope">
+				<el-tag :type="scope.row.win ? 'success' : 'danger'" size="mini" >{{ scope.row.atTime }}</el-tag>
+			</template>
+		</el-table-column>
+		<el-table-column
+			prop="exp"
+			label="Exp">
+		</el-table-column>
+		<el-table-column
+			label="Goods">
+			<template slot-scope="scope">
+				<template v-if="scope.row.reward.goods">
+					<el-tag v-for="(gd, index) in scope.row.reward.goods" v-bind:key="index" size="mini">{{ gd.gname }}</el-tag>
 				</template>
-		  	</el-table-column>
-		  	<el-table-column
-				prop="exp"
-				label="Exp">
-		  	</el-table-column>
-		  	<el-table-column
-				label="Goods">
-			  	<template slot-scope="scope">
-			  		<template v-if="scope.row.reward.goods">
-			  			<el-tag v-for="(gd, index) in scope.row.reward.goods" v-bind:key="index" size="mini">{{ gd.gname }}</el-tag>
-					</v-if>
-			  	</template>
-			</el-table-column>
-		</el-table>
+			</template>
+		</el-table-column>
+		<el-table-column label="Operations">
+			<template slot-scope="scope">
+				<el-button size="mini" @click="showDetailLog(scope.$index, scope.row)">日志</el-button>
+				<el-dialog title="战斗日志" :visible.sync="dialogShowDetailLogVisible" :append-to-body="true">
+					<div style="text-align: left;" v-html="temp.detail.join('<br/>')"></div>
+				</el-dialog>
+			</template>
+		</el-table-column>
+	</el-table>
 </div>`)
 
 		function getKey(key) {
@@ -265,15 +272,19 @@ let aaa = setInterval(function () {
 					bat_total: 0,
 
 					batLogs: [],
-					batDetailLogs: [],
 					battleScreens: [],
 					dialogScheduleFormVisible: false,
 					dialogFallbackFormVisible: false,
+					dialogShowDetailLogVisible: false,
 					form: {
 						screenId: '',
 						screenTime: '',
 					},
 					logData: false,
+
+					temp: {
+						detail: []
+					},
 
 					levelUpPercentage: 0,
 					nextLevelUpAt: '-',
@@ -313,9 +324,6 @@ let aaa = setInterval(function () {
 						// 保留最近50场战斗的详细记录
 						let _detailLog = []
 						$($('#logs').children().get().reverse()).each((index, node) => _detailLog.push(node.innerText))
-						if (this.batDetailLogs.unshift(_detailLog) > 50) {
-							this.batDetailLogs.pop()
-						}
 
 						if (this.logData) {
 							log(res.data)
@@ -354,6 +362,7 @@ let aaa = setInterval(function () {
 								exp: myExp ? Math.round(myExp.exp, 2) : 0,
 								expRate: myExp ? myExp.exp_rate : 0,
 								reward: myReward ? myReward : [],
+								detail: _detailLog,
 							}
 
 							this.bat_ok++
@@ -365,12 +374,13 @@ let aaa = setInterval(function () {
 								exp: 0,
 								expRate: 1,
 								reward: [],
+								detail: _detailLog,
 							}
 
 							this.bat_fail++
 						}
 
-						if (this.batLogs.unshift(_batLog) > 300) {
+						if (this.batLogs.unshift(_batLog) > 99) {
 							this.batLogs.pop()
 						}
 
@@ -487,6 +497,10 @@ let aaa = setInterval(function () {
 				}
 			},
 			methods: {
+				showDetailLog(index, row) {
+					this.temp.detail = row.detail
+					this.dialogShowDetailLogVisible = true
+				},
 				addNewSchedule() {
 					this.stores.battleSchedules.push({
 						time: this.form.screenTime,
