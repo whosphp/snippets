@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.1.0
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -148,6 +148,44 @@ let aaa = setInterval(function () {
 		  	inactive-color="#ff4949">
 		</el-switch>
 	</el-row>
+	<el-row>
+		自动帮派
+		<el-switch
+			v-model="stores.autoFation"
+		  	active-color="#13ce66"
+		  	inactive-color="#ff4949">
+		</el-switch>
+		<el-button @click="_autoFationTaskHandler">开刷</el-button>
+		<el-button style="float: right; padding: 3px 0" type="text" @click="dialogAutoFationSettings = true">配置</el-button>
+		<el-dialog title="自动帮派任务配置" :visible.sync="dialogAutoFationSettings" :append-to-body="true">
+			<el-table :data="stores.allFationTasks" size="mini">
+				<el-table-column property="info" label="名称"></el-table-column>
+				<el-table-column label="需要">
+					<template slot-scope="scope">
+						{{ formatNeedGoods(scope.row) }}
+					</template>
+				</el-table-column>
+				<el-table-column label="给予">
+					<template slot-scope="scope">
+						{{ formatGivenGoods(scope.row) }}
+					</template>
+				</el-table-column>
+				<el-table-column>
+					<template slot-scope="scope">
+						<el-radio-group v-model="scope.row.who_action">
+							<el-radio :label="1">必做</el-radio>
+							<el-radio :label="2">有就做</el-radio>
+							<el-radio :label="3">不做</el-radio>
+						</el-radio-group>
+					</template>
+				</el-table-column>
+			</el-table>
+			<div slot="footer" class="dialog-footer">
+				<el-button @click="dialogAutoFationSettings = false">取消</el-button>
+				<el-button type="primary" @click="updateAutoFationSettings">确定</el-button>
+			</div>
+		</el-dialog>
+	</el-row>
 	<el-row>		
 		<el-button-group>
 			<el-button type="success" size="mini">{{ expPerSecond }}</el-button>
@@ -260,6 +298,116 @@ let aaa = setInterval(function () {
 			}
 		}
 
+		const routes = [
+			["connector.userHandler.getUserTask", "getUserTask"],
+			["connector.fationHandler.getFationTask", "getFationTask"],
+			["connector.fationHandler.closeUserTask", "closeUserTask"],
+			["connector.playerHandler.payUserTask", "payUserTask"],
+		]
+		let fationTaskHandlers = {}
+		routes.forEach(route => {
+			fationTaskHandlers[route[1]] = function (params) {
+				params = params || {}
+
+				return new Promise((resolve, reject) => {
+					pomelo.request(route[0], params, function (data) {
+						resolve(data)
+					})
+				})
+			}
+		})
+
+		function sleep(ms) {
+			return new Promise((resolve) => {
+				setTimeout(resolve, ms);
+			});
+		}
+
+		const waitSeconds = 1100
+		function autoFationTaskHandler() {
+			if (! who_app.stores.autoFation) {
+				console.log('停刷')
+			}
+
+			fationTaskHandlers.getUserTask().then(res => {
+				console.log('auto fation start')
+				console.log(res)
+				if (res.code === 200) {
+					let datum = res.data.find(datum => datum.task.task_type === 4)
+					if (datum) {
+						// 扩充任务库
+						let task = who_app.stores.allFationTasks.find(task => task._id === datum.task._id)
+						console.log(task)
+						if (! task) {
+							// 默认为可做可不做
+							datum.task.who_action = 2
+							who_app.stores.allFationTasks.push(datum.task)
+						} else {
+							datum.task.who_action = task.who_action
+						}
+
+						console.log(datum)
+
+						if (datum.task.who_action === 1) {
+
+							sleep(waitSeconds).then(_ => {
+								fationTaskHandlers.payUserTask({utid: datum.utid}).then(res => {
+									console.log(res)
+									if (res.code === 200) {
+										console.log('任务完成')
+										sleep(waitSeconds).then(_ => autoFationTaskHandler())
+									} else if (res.code === 400) {
+										// 任务材料不足终止循环
+										console.log('材料不足 终止循环')
+									}
+								})
+							})
+
+						} else if (datum.task.who_action === 2) {
+
+							sleep(waitSeconds).then(_ => {
+								fationTaskHandlers.payUserTask({utid: datum.utid}).then(res => {
+									if (res.code === 200) {
+										console.log('任务完成')
+										sleep(waitSeconds).then(_ => autoFationTaskHandler())
+									} else if (res.code === 400) {
+										// 任务材料不足放弃任务
+										console.log('材料不足 放弃任务')
+										sleep(waitSeconds).then(_ => {
+											fationTaskHandlers.closeUserTask({tid: datum.utid}).then(res => {
+												sleep(waitSeconds).then(_ => autoFationTaskHandler())
+											})
+										})
+
+									}
+								})
+							})
+
+						} else if (datum.task.who_action === 3) {
+
+							sleep(waitSeconds).then(_ => {
+								fationTaskHandlers.closeUserTask({tid: datum.utid}).then(res => {
+									console.log('放弃任务')
+									sleep(waitSeconds).then(_ => autoFationTaskHandler())
+								})
+							})
+						}
+					} else {
+						sleep(waitSeconds).then(_ => {
+							fationTaskHandlers.getFationTask().then(res => {
+								if (res.code === 200) {
+									console.log('接任务')
+									sleep(waitSeconds).then(_ => autoFationTaskHandler())
+								} else {
+									console.log(res)
+								}
+							})
+						})
+					}
+				}
+			})
+		}
+
 		let stores = GM_getValue(getKey('stores'), {})
 
 		unsafeWindow.who_app = new Vue({
@@ -276,6 +424,7 @@ let aaa = setInterval(function () {
 					dialogScheduleFormVisible: false,
 					dialogFallbackFormVisible: false,
 					dialogShowDetailLogVisible: false,
+					dialogAutoFationSettings: false,
 					form: {
 						screenId: '',
 						screenTime: '',
@@ -297,7 +446,9 @@ let aaa = setInterval(function () {
 						fallbackId: stores.hasOwnProperty("fallbackId") ? stores.fallbackId : "",
 						autoFarm: stores.hasOwnProperty("autoFarm") ? stores.autoFarm : false,
 						lastBatId: stores.hasOwnProperty("lastBatId") ? stores.lastBatId : "",
-						lastBatName: stores.hasOwnProperty("lastBatName") ? stores.lastBatName : ""
+						lastBatName: stores.hasOwnProperty("lastBatName") ? stores.lastBatName : "",
+						autoFation: stores.hasOwnProperty("autoFation") ? stores.autoFation : false,
+						allFationTasks: stores.hasOwnProperty("allFationTasks") ? stores.allFationTasks : [],
 					}
 				}
 			},
@@ -445,6 +596,12 @@ let aaa = setInterval(function () {
 				},
 				"stores.fallbackId": function () {
 					this.persistentStores()
+				},
+				"stores.autoFation": function () {
+					this.persistentStores()
+				},
+				"stores.allFationTasks": function () {
+					this.persistentStores()
 				}
 			},
 			computed: {
@@ -515,6 +672,35 @@ let aaa = setInterval(function () {
 				format(percentage) {
 					return `${this.expPerSecond}(s) / ${this.nextLevelUpAt} / ${percentage}%`
 				},
+				formatNeedGoods(task) {
+					let temp = {}
+					task.need_goods_num.map(gd => temp[gd.id] = gd.count)
+
+					return task.need_goods.map(gd => gd.name + 'x' + temp[gd._id]).join(' ')
+				},
+				formatGivenGoods(task) {
+					let temp = {}
+					task.give_goods_num.map(gd => temp[gd.id] = gd.count)
+
+					let formatted = ''
+					if (task.contribution_num) {
+						formatted+= `帮贡:${task.contribution_num} `
+					}
+
+					if (task.repair_num) {
+						formatted+= `修为:${task.repair_num} `
+					}
+
+					if (task.give_goods.length) {
+						formatted+= '物品:' + task.give_goods.map(gd => gd.name + ' x ' + temp[gd._id]).join(' ')
+					}
+
+					return formatted
+				},
+				updateAutoFationSettings() {
+					this.dialogAutoFationSettings = false
+					this.persistentStores()
+				},
 				turnOffSystemAutoBattle() {
 					if (this.stores.autoBattle) {
 						// 关闭系统的循环开关
@@ -542,6 +728,9 @@ let aaa = setInterval(function () {
 							}, later.parse.text(`at ${s.time}`))
 						)
 					})
+				},
+				_autoFationTaskHandler() {
+					autoFationTaskHandler()
 				}
 			}
 		})
