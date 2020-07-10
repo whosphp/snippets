@@ -327,6 +327,7 @@ let aaa = setInterval(function () {
 		function autoFationTaskHandler() {
 			if (! who_app.stores.autoFation) {
 				console.log('停刷')
+				return
 			}
 
 			fationTaskHandlers.getUserTask().then(res => {
