@@ -14,6 +14,7 @@
 // @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.js
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
 // @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
+// @require      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
 // @run-at       document-start
 // ==/UserScript==
 let aaa = setInterval(function () {
@@ -303,6 +304,8 @@ let aaa = setInterval(function () {
 			["connector.fationHandler.getFationTask", "getFationTask"],
 			["connector.fationHandler.closeUserTask", "closeUserTask"],
 			["connector.playerHandler.payUserTask", "payUserTask"],
+			["connector.teamHandler.getTeamList", "getTeamList"],
+			["connector.userHandler.userInfo", "userInfo"],
 		]
 		let fationTaskHandlers = {}
 		routes.forEach(route => {
@@ -316,6 +319,24 @@ let aaa = setInterval(function () {
 				})
 			}
 		})
+
+
+		const promiseTimeout = function(ms, promise) {
+
+			// Create a promise that rejects in <ms> milliseconds
+			let timeout = new Promise((resolve, reject) => {
+				let id = setTimeout(() => {
+					clearTimeout(id);
+					reject('Timed out in '+ ms + 'ms.')
+				}, ms)
+			})
+
+			// Returns a race between our timeout and the passed in promise
+			return Promise.race([
+				promise,
+				timeout
+			])
+		}
 
 		function sleep(ms) {
 			return new Promise((resolve) => {
@@ -436,6 +457,8 @@ let aaa = setInterval(function () {
 						detail: []
 					},
 
+					myTeam: {},
+
 					levelUpPercentage: 0,
 					nextLevelUpAt: '-',
 
@@ -470,6 +493,28 @@ let aaa = setInterval(function () {
 				}, 300000)
 
 				pomelo.on('onRoundBatEnd', res => {
+					let roundArr = res.data.round_arr
+					let roundStatus = res.data.round_status
+					let players = roundStatus.filter(s => s.is_palyer).map(s => s.name)
+
+					if (players.length < 5) {
+						// 定时更新成员
+
+						// 队伍未满员
+
+						// 队伍中成员离线
+					}
+
+					if (res.data.round_num === 1) {
+						// 第一回合
+						roundArr.forEach(ra => {
+							if (players.includes(ra.a_name) && ra.process === "物理攻击") {
+								// 该玩家没有使用开启技能或者没有足够的蓝使用技能
+
+							}
+						})
+					}
+
 					if (res.data.win > 0) {
 						log('end')
 
@@ -515,6 +560,7 @@ let aaa = setInterval(function () {
 								expRate: myExp ? myExp.exp_rate : 0,
 								reward: myReward ? myReward : [],
 								detail: _detailLog,
+								round_num: res.data.round_num
 							}
 
 							this.bat_ok++
@@ -527,6 +573,7 @@ let aaa = setInterval(function () {
 								expRate: 1,
 								reward: [],
 								detail: _detailLog,
+								round_num: res.data.round_num
 							}
 
 							this.bat_fail++
@@ -551,17 +598,49 @@ let aaa = setInterval(function () {
 					}
 				}, 6000)
 
-
-				let mid = typeof global === "undefined" ? 1 : (typeof global.mid !== "undefined" ? global.mid : 1)
-				pomelo.request("connector.teamHandler.getTeamList", {
-					mid,
-				}, res => {
+				fationTaskHandlers.getTeamList({
+					mid: this.getMid(),
+				}).then(res => {
 					if (res.code === 200) {
 						this.battleScreens = res.data.screens
 					}
 				})
+
+				setInterval(_ => {
+					fationTaskHandlers.getTeamList({
+						mid: this.getMid(),
+					}).then(res => {
+						if (res.code === 200) {
+							this.myTeam = res.data.myTeam ? res.data.myTeam : {}
+						}
+					})
+				}, 30000)
 			},
 			watch: {
+				myTeam(n, o) {
+					// 如果队伍不满员
+					if (n.users) {
+						let maxPlayerNum = n.combat ? n.combat.player_num : 5
+						let currentPlayerNum = n.users.length
+
+						if (o.users && o.users.length) {
+							let diff = _.differenceBy(n.users, o.users, 'nickname')
+							let rdiff = _.differenceBy(o.users, n.users, 'nickname')
+
+							if (rdiff.length) {
+								console.log(_.map(rdiff, 'nickname').join(',') + ' 离队')
+							}
+
+							if (diff.length) {
+								console.log(_.map(diff, 'nickname').join(',') + ' 入队')
+							}
+						}
+
+						if (currentPlayerNum < maxPlayerNum) {
+							console.log('队伍未满员')
+						}
+					}
+				},
 				"levelUpPercentage": function (n) {
 					$('#whoExpBar').css('width', `${n}%`)
 				},
@@ -732,6 +811,19 @@ let aaa = setInterval(function () {
 				},
 				_autoFationTaskHandler() {
 					autoFationTaskHandler()
+				},
+				getMid() {
+					return typeof global === "undefined" ? 1 : (typeof global.mid !== "undefined" ? global.mid : 1)
+				},
+				reloadIfOffline() {
+					promiseTimeout(5000, fationTaskHandlers.userInfo())
+						.then(res => {
+							console.log('still alive')
+						})
+						.catch(error => {
+							console.log(error)
+							location.href = "/login?is_r=1"
+						})
 				}
 			}
 		})
