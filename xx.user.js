@@ -101,6 +101,10 @@ let aaa = setInterval(function () {
 		$('head').append(`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/theme-chalk/index.css">`)
 		$('head').append(`
 <style>
+	.el-table--mini table {
+		font-size: 14px;
+	}
+
 	.el-card__header {
 		padding: 5px;;
 	}
@@ -156,7 +160,7 @@ let aaa = setInterval(function () {
 		  	active-color="#13ce66"
 		  	inactive-color="#ff4949">
 		</el-switch>
-		<el-button @click="_autoFationTaskHandler">开刷</el-button>
+		<el-button @click="_autoFationTaskHandler" size="mini">开刷</el-button>
 		<el-button style="float: right; padding: 3px 0" type="text" @click="dialogAutoFationSettings = true">配置</el-button>
 		<el-dialog title="自动帮派任务配置" :visible.sync="dialogAutoFationSettings" :modal="false" :append-to-body="true">
 			<el-table :data="stores.allFationTasks" size="mini">
@@ -182,8 +186,8 @@ let aaa = setInterval(function () {
 				</el-table-column>
 			</el-table>
 			<div slot="footer" class="dialog-footer">
-				<el-button @click="dialogAutoFationSettings = false">取消</el-button>
-				<el-button type="primary" @click="updateAutoFationSettings">确定</el-button>
+				<el-button @click="dialogAutoFationSettings = false" size="mini">取消</el-button>
+				<el-button type="primary" @click="updateAutoFationSettings" size="mini">确定</el-button>
 			</div>
 		</el-dialog>
 	</el-row>
@@ -772,7 +776,15 @@ let aaa = setInterval(function () {
 					}
 
 					if (task.give_goods.length) {
-						formatted+= '物品:' + task.give_goods.map(gd => gd.name + ' x ' + temp[gd._id]).join(' ')
+						formatted+= '物品:' + task.give_goods.map(gd => gd.name + ' x ' + temp[gd._id]).join(' ') + ' '
+					}
+
+					if (task.game_gold) {
+						formatted+= `仙石:${task.game_gold} `
+					}
+
+					if (task.game_silver) {
+						formatted+= `灵石:${task.game_silver} `
 					}
 
 					return formatted
