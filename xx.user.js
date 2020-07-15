@@ -158,7 +158,7 @@ let aaa = setInterval(function () {
 		</el-switch>
 		<el-button @click="_autoFationTaskHandler">开刷</el-button>
 		<el-button style="float: right; padding: 3px 0" type="text" @click="dialogAutoFationSettings = true">配置</el-button>
-		<el-dialog title="自动帮派任务配置" :visible.sync="dialogAutoFationSettings" :append-to-body="true">
+		<el-dialog title="自动帮派任务配置" :visible.sync="dialogAutoFationSettings" :modal="false" :append-to-body="true">
 			<el-table :data="stores.allFationTasks" size="mini">
 				<el-table-column property="info" label="名称"></el-table-column>
 				<el-table-column label="需要">
@@ -202,7 +202,7 @@ let aaa = setInterval(function () {
 				active-color="#13ce66"
 				inactive-color="#ff4949">
 			</el-switch>
-			<el-dialog title="请选择Fallback" :visible.sync="dialogFallbackFormVisible" :append-to-body="true">
+			<el-dialog title="请选择Fallback" :visible.sync="dialogFallbackFormVisible" :modal="false" :append-to-body="true">
 				<el-form label-width="120px">
 					<el-form-item label="fallback">
 						<el-select v-model="stores.fallbackId" style="width: 100%;">
@@ -223,7 +223,7 @@ let aaa = setInterval(function () {
 				@click="dialogScheduleFormVisible = true">
 				新增
 			</el-button>
-			<el-dialog title="新增Schedule" :visible.sync="dialogScheduleFormVisible" :append-to-body="true">
+			<el-dialog title="新增Schedule" :visible.sync="dialogScheduleFormVisible" :modal="false" :append-to-body="true">
 				<el-form :model="form" label-width="120px">
 					<el-form-item label="时间">
 						<el-time-select style="width: 100%;"
@@ -281,7 +281,7 @@ let aaa = setInterval(function () {
 		<el-table-column label="Operations">
 			<template slot-scope="scope">
 				<el-button size="mini" @click="showDetailLog(scope.$index, scope.row)">日志</el-button>
-				<el-dialog title="战斗日志" :visible.sync="dialogShowDetailLogVisible" :append-to-body="true">
+				<el-dialog title="战斗日志" :visible.sync="dialogShowDetailLogVisible" :modal="false" :append-to-body="true">
 					<div style="text-align: left;" v-html="temp.detail.join('<br/>')"></div>
 				</el-dialog>
 			</template>
