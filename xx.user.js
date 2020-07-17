@@ -11,6 +11,7 @@
 // @grant        unsafeWindow
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_xmlhttpRequest
 // @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.js
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
 // @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
@@ -59,7 +60,6 @@ let aaa = setInterval(function () {
 		pomelo.request("connector.userHandler.userInfo", {
 		}, data => {
 			if (data.code == 200) {
-				console.log('user info updated')
 				unsafeWindow.who_user = data.user
 				who_user.nextLevelGetExp = data.nextLevelGetExp
 			}
@@ -95,6 +95,70 @@ let aaa = setInterval(function () {
 
 		let who_user_id = user_id
 		let consolelog = true
+		let roads, maps, mapsKeyByName
+
+		// 下载地图
+		GM_xmlhttpRequest({
+			method: "GET",
+			url: "https://cdn.jsdelivr.net/gh/whosphp/static/roads.json",
+			responseType: "json",
+			onload: function (response) {
+				({roads, maps} = response.response)
+				mapsKeyByName = _.keyBy(maps, 'name')
+			}
+		})
+
+		// 寻路
+		function getPath(from, to) {
+			let path = []
+
+			for (let i = 0; i < roads.length; ++i) {
+				let road = roads[i]
+				let fromIndex = road.indexOf(from)
+				let toIndex = road.indexOf(to)
+
+				if (fromIndex > -1 && toIndex > -1) {
+					if (fromIndex <= toIndex) {
+						path = road.slice(fromIndex, toIndex);
+					} else {
+						path = road.slice(toIndex, fromIndex).reverse()
+					}
+
+					return path
+				}
+			}
+
+			for (let i = 0; i < roads.length; ++i) {
+				let road = roads[i]
+				let fromIndex = road.indexOf(from)
+
+				if (fromIndex > -1) {
+					path = path.concat(road.slice(0, fromIndex).reverse())
+					break
+				}
+			}
+
+			for (let i = 0; i < roads.length; ++i) {
+				let road = roads[i]
+				let toIndex = road.indexOf(to)
+
+				if (toIndex > -1) {
+					path = path.concat(road.slice(1, toIndex + 1))
+					break
+				}
+			}
+
+			return path
+		}
+
+		// 换图
+		async function autoMove(path) {
+			for (let i = 0; i < path.length; i++) {
+				await routeHandlers.moveToNewMap({mid: path[i]})
+			}
+
+			return true
+		}
 
 		console.log('start loading...')
 
@@ -131,8 +195,6 @@ let aaa = setInterval(function () {
     background-color: green;
 "></div>
 		`).insertAfter('.top-bar')
-
-		console.log('stop loading')
 
 		$('.pdf:first').append(`
 <div id="whoapp">
@@ -310,10 +372,11 @@ let aaa = setInterval(function () {
 			["connector.playerHandler.payUserTask", "payUserTask"],
 			["connector.teamHandler.getTeamList", "getTeamList"],
 			["connector.userHandler.userInfo", "userInfo"],
+			["connector.playerHandler.moveToNewMap", "moveToNewMap"],
 		]
-		let fationTaskHandlers = {}
+		let routeHandlers = {}
 		routes.forEach(route => {
-			fationTaskHandlers[route[1]] = function (params) {
+			routeHandlers[route[1]] = function (params) {
 				params = params || {}
 
 				return new Promise((resolve, reject) => {
@@ -323,7 +386,6 @@ let aaa = setInterval(function () {
 				})
 			}
 		})
-
 
 		const promiseTimeout = function(ms, promise) {
 
@@ -355,7 +417,7 @@ let aaa = setInterval(function () {
 				return
 			}
 
-			fationTaskHandlers.getUserTask().then(res => {
+			routeHandlers.getUserTask().then(res => {
 				console.log('auto fation start')
 				console.log(res)
 				if (res.code === 200) {
@@ -377,7 +439,7 @@ let aaa = setInterval(function () {
 						if (datum.task.who_action === 1) {
 
 							sleep(waitSeconds).then(_ => {
-								fationTaskHandlers.payUserTask({utid: datum.utid}).then(res => {
+								routeHandlers.payUserTask({utid: datum.utid}).then(res => {
 									console.log(res)
 									if (res.code === 200) {
 										console.log('任务完成')
@@ -392,7 +454,7 @@ let aaa = setInterval(function () {
 						} else if (datum.task.who_action === 2) {
 
 							sleep(waitSeconds).then(_ => {
-								fationTaskHandlers.payUserTask({utid: datum.utid}).then(res => {
+								routeHandlers.payUserTask({utid: datum.utid}).then(res => {
 									if (res.code === 200) {
 										console.log('任务完成')
 										sleep(waitSeconds).then(_ => autoFationTaskHandler())
@@ -400,7 +462,7 @@ let aaa = setInterval(function () {
 										// 任务材料不足放弃任务
 										console.log('材料不足 放弃任务')
 										sleep(waitSeconds).then(_ => {
-											fationTaskHandlers.closeUserTask({tid: datum.utid}).then(res => {
+											routeHandlers.closeUserTask({tid: datum.utid}).then(res => {
 												sleep(waitSeconds).then(_ => autoFationTaskHandler())
 											})
 										})
@@ -412,7 +474,7 @@ let aaa = setInterval(function () {
 						} else if (datum.task.who_action === 3) {
 
 							sleep(waitSeconds).then(_ => {
-								fationTaskHandlers.closeUserTask({tid: datum.utid}).then(res => {
+								routeHandlers.closeUserTask({tid: datum.utid}).then(res => {
 									console.log('放弃任务')
 									sleep(waitSeconds).then(_ => autoFationTaskHandler())
 								})
@@ -420,7 +482,7 @@ let aaa = setInterval(function () {
 						}
 					} else {
 						sleep(waitSeconds).then(_ => {
-							fationTaskHandlers.getFationTask().then(res => {
+							routeHandlers.getFationTask().then(res => {
 								if (res.code === 200) {
 									console.log('接任务')
 									sleep(waitSeconds).then(_ => autoFationTaskHandler())
@@ -602,7 +664,7 @@ let aaa = setInterval(function () {
 					}
 				}, 6000)
 
-				fationTaskHandlers.getTeamList({
+				routeHandlers.getTeamList({
 					mid: this.getMid(),
 				}).then(res => {
 					if (res.code === 200) {
@@ -611,7 +673,7 @@ let aaa = setInterval(function () {
 				})
 
 				setInterval(_ => {
-					fationTaskHandlers.getTeamList({
+					routeHandlers.getTeamList({
 						mid: this.getMid(),
 					}).then(res => {
 						if (res.code === 200) {
@@ -828,7 +890,7 @@ let aaa = setInterval(function () {
 					return typeof global === "undefined" ? 1 : (typeof global.mid !== "undefined" ? global.mid : 1)
 				},
 				reloadIfOffline() {
-					promiseTimeout(5000, fationTaskHandlers.userInfo())
+					promiseTimeout(5000, routeHandlers.userInfo())
 						.then(res => {
 							console.log('still alive')
 						})
@@ -836,6 +898,18 @@ let aaa = setInterval(function () {
 							console.log(error)
 							location.href = "/login?is_r=1"
 						})
+				},
+				moveTo(from, to, by) {
+					by = by || 'id'
+					if (by === 'name') {
+						from = mapsKeyByName[from].id
+						to = mapsKeyByName[to].id
+					}
+
+					autoMove(getPath(from, to)).then(s => {
+						// 移动完成
+						console.log('auto move over')
+					})
 				}
 			}
 		})
