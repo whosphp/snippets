@@ -225,6 +225,15 @@ let who_interval = setInterval(function () {
 		</el-dialog>
 	</el-row>
 	<el-row>
+		<el-button-group>
+		  	<el-button size="mini">{{ fation_task_rate + '%' }}</el-button>
+		  	<el-button type="success" size="mini">{{ fation_task_ok }}</el-button>
+		  	<el-button type="warning" size="mini">{{ fation_task_fail }}</el-button>
+		  	<el-button type="primary" size="mini">{{ fation_task_total }}</el-button>
+			<el-button @click="fationTaskReset" size="mini" icon="el-icon-refresh-left" type="danger"></el-button>
+		</el-button-group>
+	</el-row>
+	<el-row>
 		自动战斗
 		<el-switch
 			v-model="stores.autoBattle"
@@ -467,6 +476,13 @@ let who_interval = setInterval(function () {
 			return
 		}
 
+		if (moment().diff(who_app.autoFationLastRunAt, seconds) <= 150) {
+			log('已经在运行了')
+			return
+		} else {
+			who_app.autoFationLastRunAt = moment()
+		}
+
 		routeHandlers.getUserTask().then(res => {
 			log('auto fation start')
 			log(res)
@@ -492,6 +508,10 @@ let who_interval = setInterval(function () {
 							routeHandlers.payUserTask({utid: datum.utid}).then(res => {
 								log(res)
 								if (res.code === 200) {
+
+									who_app.fation_task_ok++
+									who_app.fation_task_total++
+
 									log('任务完成')
 									sleep(waitSeconds).then(_ => autoFationTaskHandler())
 								} else if (res.code === 400) {
@@ -506,6 +526,10 @@ let who_interval = setInterval(function () {
 						sleep(waitSeconds).then(_ => {
 							routeHandlers.payUserTask({utid: datum.utid}).then(res => {
 								if (res.code === 200) {
+
+									who_app.fation_task_ok++
+									who_app.fation_task_total++
+
 									log('任务完成')
 									sleep(waitSeconds).then(_ => autoFationTaskHandler())
 								} else if (res.code === 400) {
@@ -513,6 +537,10 @@ let who_interval = setInterval(function () {
 									log('材料不足 放弃任务')
 									sleep(waitSeconds).then(_ => {
 										routeHandlers.closeUserTask({tid: datum.utid}).then(res => {
+
+											who_app.fation_task_fail++
+											who_app.fation_task_total++
+
 											sleep(waitSeconds).then(_ => autoFationTaskHandler())
 										})
 									})
@@ -525,6 +553,10 @@ let who_interval = setInterval(function () {
 
 						sleep(waitSeconds).then(_ => {
 							routeHandlers.closeUserTask({tid: datum.utid}).then(res => {
+
+								who_app.fation_task_fail++
+								who_app.fation_task_total++
+
 								log('放弃任务')
 								sleep(waitSeconds).then(_ => autoFationTaskHandler())
 							})
@@ -556,6 +588,11 @@ let who_interval = setInterval(function () {
 				bat_ok: 0,
 				bat_fail: 0,
 				bat_total: 0,
+
+				fation_task_ok: 0,
+				fation_task_fail: 0,
+				fation_task_total: 0,
+				autoFationLastRunAt: moment(),
 
 				batLogs: [],
 				battleScreens: [],
@@ -829,6 +866,13 @@ let who_interval = setInterval(function () {
 					return 0
 				}
 			},
+			fation_task_rate() {
+				if (this.fation_task_total) {
+					return (this.fation_task_ok * 100 / this.fation_task_total).toFixed(1)
+				} else {
+					return 0
+				}
+			},
 			latestBatchLogs() {
 				return this.batLogs.slice(0, 5)
 			},
@@ -941,6 +985,11 @@ let who_interval = setInterval(function () {
 				this.bat_ok = 0
 				this.bat_fail = 0
 				this.bat_total = 0
+			},
+			fationTaskReset() {
+				this.fation_task_ok = 0
+				this.fation_task_fail = 0
+				this.fation_task_total = 0
 			},
 			persistentStores() {
 				log('persistentStores...')
