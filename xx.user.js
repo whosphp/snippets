@@ -157,8 +157,14 @@ let aaa = setInterval(function () {
 
 		// 换图
 		async function autoMove(path) {
+			console.log(path)
 			for (let i = 0; i < path.length; i++) {
-				await routeHandlers.moveToNewMap({mid: path[i]})
+				await sleep(100)
+				let moveRes = await routeHandlers.moveToNewMap({mid: path[i]})
+				console.log(moveRes)
+				if (moveRes.code === 200) {
+					global.mid = path[i]
+				}
 			}
 
 			return true
@@ -359,6 +365,25 @@ let aaa = setInterval(function () {
 	</el-table>
 </div>`)
 
+		// hook
+		let oldRequest = pomelo.request
+		let routesToHook = [
+			"connector.userHandler.getMyGoods",
+		]
+		pomelo.request = function(route, msg, cb) {
+			let shouldLog = routesToHook.includes(route)
+
+			shouldLog && console.log(route, msg, cb)
+
+			let oldCb = cb
+			cb = function(a, b, c, d, e, f) {
+				shouldLog && console.log(a, b, c, d, e, f)
+				oldCb(a, b, c, d, e, f)
+			}
+
+			oldRequest(route, msg, cb)
+		}
+
 		function getKey(key) {
 			return who_user_id + ':' + key
 		}
@@ -377,6 +402,9 @@ let aaa = setInterval(function () {
 			["connector.teamHandler.getTeamList", "getTeamList"],
 			["connector.userHandler.userInfo", "userInfo"],
 			["connector.playerHandler.moveToNewMap", "moveToNewMap"],
+			["connector.userHandler.getMyGoods", "getMyGoods"],
+			["connector.userHandler.useGoods", "useGoods"],
+			["connector.userHandler.wbt", "wbt"],
 		]
 		let routeHandlers = {}
 		routes.forEach(route => {
@@ -390,6 +418,69 @@ let aaa = setInterval(function () {
 				})
 			}
 		})
+
+		const helpers = {
+			fetchAllGoods: async function () {
+				let goods = []
+				for (let i = 1;; i++) {
+					let data = await routeHandlers.getMyGoods({
+						page: i
+					})
+
+					if (data.data.goods.length === 0) {
+						break
+					} else {
+						goods = goods.concat(data.data.goods)
+					}
+				}
+
+				return goods
+			},
+			useGoods: async function (goods) {
+				for (let i = 0; i < goods.length; i++) {
+					let good = goods[i]
+
+					for (let count = 0; count < good.count; count++) {
+						console.log("使用藏宝图")
+						await sleep(1100)
+						await routeHandlers.useGoods({
+							gid: good._id
+						})
+					}
+				}
+			},
+			wbt: async function (goods) {
+				for (let i = 0; i < goods.length; i++) {
+					console.log("挖宝")
+					let good = goods[i]
+					await sleep(1100)
+					let targetMapName = good.info.match(/【(.*)】/)[1]
+					console.log(targetMapName)
+					console.log(global.mid, mapsKeyByName[targetMapName].id)
+					await autoMove(getPath(global.mid, mapsKeyByName[targetMapName].id))
+					let wbtRes = await routeHandlers.wbt({
+						ugid: good._id
+					})
+					console.log(wbtRes)
+				}
+			},
+			// 自动挖宝 挖宝前记录位置, 挖宝后自动返回
+			autoWbt: function () {
+				let restoreMid = global.mid
+				helpers.fetchAllGoods()
+					.then(allGoods => {
+						// 使用所有藏宝图
+						helpers.useGoods(allGoods.filter(g => g.hasOwnProperty('goods') && ["藏宝图", "高级藏宝图"].includes(g.goods.name)))
+							.then(_ => {
+								helpers.fetchAllGoods().then(allGoods => {
+									helpers.wbt(allGoods.filter(g => g.hasOwnProperty('name') && g.name.indexOf("藏宝图") > -1)).then(_ => {
+										autoMove(getPath(global.mid, restoreMid))
+									})
+								})
+							})
+					})
+			}
+		}
 
 		const promiseTimeout = function(ms, promise) {
 
@@ -526,6 +617,8 @@ let aaa = setInterval(function () {
 					temp: {
 						detail: []
 					},
+
+					allGoods: [],
 
 					myTeam: {},
 
@@ -801,6 +894,16 @@ let aaa = setInterval(function () {
 					})
 
 					return (totalExp / seconds).toFixed(2)
+				},
+				treasureMaps() {
+					return this.allGoods.filter(g => {
+						return g.hasOwnProperty('goods') && ["藏宝图", "高级藏宝图"].includes(g.goods.name);
+					})
+				},
+				usedTreasureMaps() {
+					return this.allGoods.filter(g => {
+						return g.hasOwnProperty('name') && g.name.indexOf("藏宝图") > -1;
+					})
 				}
 			},
 			methods: {
@@ -914,6 +1017,9 @@ let aaa = setInterval(function () {
 						// 移动完成
 						console.log('auto move over')
 					})
+				},
+				fetchAllGoods() {
+					helpers.fetchAllGoods().then(gs => this.allGoods = gs)
 				}
 			}
 		})
