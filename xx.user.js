@@ -476,11 +476,13 @@ let who_interval = setInterval(function () {
 			return
 		}
 
-		if (moment().diff(who_app.autoFationLastRunAt, seconds) <= 150) {
-			log('已经在运行了')
-			return
-		} else {
-			who_app.autoFationLastRunAt = moment()
+		if (who_app.autoFationLastRunAt !== null) {
+			if (moment().diff(who_app.autoFationLastRunAt, seconds) <= 150) {
+				log('已经在运行了')
+				return
+			} else {
+				who_app.autoFationLastRunAt = moment()
+			}
 		}
 
 		routeHandlers.getUserTask().then(res => {
@@ -592,7 +594,7 @@ let who_interval = setInterval(function () {
 				fation_task_ok: 0,
 				fation_task_fail: 0,
 				fation_task_total: 0,
-				autoFationLastRunAt: moment(),
+				autoFationLastRunAt: null,
 
 				batLogs: [],
 				battleScreens: [],
