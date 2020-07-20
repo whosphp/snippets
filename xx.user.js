@@ -184,21 +184,8 @@ let who_interval = setInterval(function () {
 	$('.pdf:first').append(`
 <div id="whoapp">
 	<el-row>
-		<el-button-group>
-		  	<el-button size="mini">{{ bat_rate + '%' }}</el-button>
-		  	<el-button type="success" size="mini">{{ bat_ok }}</el-button>
-		  	<el-button type="warning" size="mini">{{ bat_fail }}</el-button>
-		  	<el-button type="primary" size="mini">{{ bat_total }}</el-button>
-			<el-button @click="batReset" size="mini" icon="el-icon-refresh-left" type="danger"></el-button>
-		</el-button-group>
-	</el-row>
-	<el-row>
-		<el-link type="danger" href="/login?is_r=1">Reload</el-link>
-		<el-switch
-			v-model="stores.autoBattle"
-		  	active-color="#13ce66"
-		  	inactive-color="#ff4949">
-		</el-switch>
+		<el-button size="mini" type="danger" @click="pageReload">刷新</el-button>
+		<el-button size="mini" type="warning" @click="gracefulReload = true">平滑刷新</el-button>
 	</el-row>
 	<el-row>
 		自动帮派
@@ -207,7 +194,6 @@ let who_interval = setInterval(function () {
 		  	active-color="#13ce66"
 		  	inactive-color="#ff4949">
 		</el-switch>
-		<el-button @click="_autoFationTaskHandler" size="mini">开刷</el-button>
 		<el-button style="float: right; padding: 3px 0" type="text" @click="dialogAutoFationSettings = true">配置</el-button>
 		<el-dialog title="自动帮派任务配置" :visible.sync="dialogAutoFationSettings" :modal="false" :append-to-body="true">
 			<el-table :data="stores.allFationTasks" size="mini">
@@ -237,6 +223,23 @@ let who_interval = setInterval(function () {
 				<el-button type="primary" @click="updateAutoFationSettings" size="mini">确定</el-button>
 			</div>
 		</el-dialog>
+	</el-row>
+	<el-row>
+		自动战斗
+		<el-switch
+			v-model="stores.autoBattle"
+		  	active-color="#13ce66"
+		  	inactive-color="#ff4949">
+		</el-switch>
+	</el-row>
+	<el-row>
+		<el-button-group>
+		  	<el-button size="mini">{{ bat_rate + '%' }}</el-button>
+		  	<el-button type="success" size="mini">{{ bat_ok }}</el-button>
+		  	<el-button type="warning" size="mini">{{ bat_fail }}</el-button>
+		  	<el-button type="primary" size="mini">{{ bat_total }}</el-button>
+			<el-button @click="batReset" size="mini" icon="el-icon-refresh-left" type="danger"></el-button>
+		</el-button-group>
 	</el-row>
 	<el-row>		
 		<el-button-group>
@@ -566,6 +569,9 @@ let who_interval = setInterval(function () {
 				},
 				logData: false,
 
+				// 平滑重启( 当前战斗结束后重启, 避免重载后导致战斗延迟6秒 )
+				gracefulReload: false,
+
 				temp: {
 					detail: []
 				},
@@ -577,6 +583,7 @@ let who_interval = setInterval(function () {
 				levelUpPercentage: 0,
 				nextLevelUpAt: '-',
 
+				intervalIds: {},
 				laterInstances: [],
 
 				stores: {
@@ -629,6 +636,10 @@ let who_interval = setInterval(function () {
 				}
 
 				if (res.data.win > 0) {
+					if (this.gracefulReload) {
+						this.pageReload()
+					}
+
 					// 保留最近50场战斗的详细记录
 					let _detailLog = []
 					$($('#logs').children().get().reverse()).each((index, node) => _detailLog.push(node.innerText))
@@ -726,6 +737,9 @@ let who_interval = setInterval(function () {
 					}
 				})
 			}, 30000)
+
+			// 自动帮派任务
+			this.switchAutoFation()
 		},
 		watch: {
 			myTeam(n, o) {
@@ -783,6 +797,7 @@ let who_interval = setInterval(function () {
 				this.persistentStores()
 			},
 			"stores.autoFation": function () {
+				this.switchAutoFation()
 				this.persistentStores()
 			},
 			"stores.allFationTasks": function () {
@@ -849,6 +864,18 @@ let who_interval = setInterval(function () {
 			}
 		},
 		methods: {
+			switchAutoFation() {
+				if (this.intervalIds.hasOwnProperty("autoFation")) {
+					clearInterval(this.intervalIds.autoFation)
+				}
+
+				if (this.stores.autoFation) {
+					autoFationTaskHandler()
+					this.intervalIds.autoFation = setInterval(_ => {
+						autoFationTaskHandler()
+					}, 300000)
+				}
+			},
 			showDetailLog(index, row) {
 				this.temp.detail = row.detail
 				this.dialogShowDetailLogVisible = true
@@ -932,11 +959,11 @@ let who_interval = setInterval(function () {
 					)
 				})
 			},
-			_autoFationTaskHandler() {
-				autoFationTaskHandler()
-			},
 			getMid() {
 				return typeof global === "undefined" ? 1 : (typeof global.mid !== "undefined" ? global.mid : 1)
+			},
+			pageReload() {
+				location.href = "/login?is_r=1"
 			},
 			reloadIfOffline() {
 				promiseTimeout(5000, routeHandlers.userInfo())
