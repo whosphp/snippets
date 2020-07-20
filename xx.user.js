@@ -6,8 +6,8 @@
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
 // @exclude      *://yundingxx.com:3366/login*
-// @updateURL    https://raw.githubusercontent.com/whosphp/snippets/master/xx.user.js
-// @downloadURL  https://raw.githubusercontent.com/whosphp/snippets/master/xx.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/whosphp/snippets/xx.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/whosphp/snippets/xx.user.js
 // @grant        unsafeWindow
 // @grant        GM_setValue
 // @grant        GM_getValue
