@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.0
+// @version      1.1.1
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -18,13 +18,13 @@
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
 // @run-at       document-start
 // ==/UserScript==
-let aaa = setInterval(function () {
+let _tempInterval = setInterval(function () {
 	if (typeof initPageUserInfo !== 'function') {
 		console.log('wait necessary functions to load...')
 		return
 	}
 
-	clearInterval(aaa)
+	clearInterval(_tempInterval)
 
 	unsafeWindow.who_user = null
 
@@ -95,8 +95,10 @@ let aaa = setInterval(function () {
 
 		let who_user_id = user_id
 
-		if (typeof consolelog === "undefined") {
+		if (typeof unsafeWindow.consolelog === "undefined") {
 			var consolelog = false
+		} else {
+			var consolelog = unsafeWindow.consolelog
 		}
 
 		let roads, maps, mapsKeyByName
@@ -157,11 +159,11 @@ let aaa = setInterval(function () {
 
 		// 换图
 		async function autoMove(path) {
-			console.log(path)
+			log(path)
 			for (let i = 0; i < path.length; i++) {
 				await sleep(100)
 				let moveRes = await routeHandlers.moveToNewMap({mid: path[i]})
-				console.log(moveRes)
+				log(moveRes)
 				if (moveRes.code === 200) {
 					global.mid = path[i]
 				}
@@ -373,12 +375,10 @@ let aaa = setInterval(function () {
 		pomelo.request = function(route, msg, cb) {
 			let shouldLog = routesToHook.includes(route)
 
-			shouldLog && console.log(route, msg, cb)
-
 			let oldCb = cb
-			cb = function(a, b, c, d, e, f) {
-				shouldLog && console.log(a, b, c, d, e, f)
-				oldCb(a, b, c, d, e, f)
+			cb = function(res) {
+				shouldLog && log(res)
+				oldCb(res)
 			}
 
 			oldRequest(route, msg, cb)
@@ -441,7 +441,7 @@ let aaa = setInterval(function () {
 					let good = goods[i]
 
 					for (let count = 0; count < good.count; count++) {
-						console.log("使用藏宝图")
+						log("使用藏宝图")
 						await sleep(1100)
 						await routeHandlers.useGoods({
 							gid: good._id
@@ -451,17 +451,17 @@ let aaa = setInterval(function () {
 			},
 			wbt: async function (goods) {
 				for (let i = 0; i < goods.length; i++) {
-					console.log("挖宝")
+					log("挖宝")
 					let good = goods[i]
 					await sleep(1100)
 					let targetMapName = good.info.match(/【(.*)】/)[1]
-					console.log(targetMapName)
-					console.log(global.mid, mapsKeyByName[targetMapName].id)
+					log(targetMapName)
+					log(global.mid, mapsKeyByName[targetMapName].id)
 					await autoMove(getPath(global.mid, mapsKeyByName[targetMapName].id))
 					let wbtRes = await routeHandlers.wbt({
 						ugid: good._id
 					})
-					console.log(wbtRes)
+					log(wbtRes)
 				}
 			},
 			// 自动挖宝 挖宝前记录位置, 挖宝后自动返回
@@ -508,19 +508,19 @@ let aaa = setInterval(function () {
 		const waitSeconds = 1100
 		function autoFationTaskHandler() {
 			if (! who_app.stores.autoFation) {
-				console.log('停刷')
+				log('停刷')
 				return
 			}
 
 			routeHandlers.getUserTask().then(res => {
-				console.log('auto fation start')
-				console.log(res)
+				log('auto fation start')
+				log(res)
 				if (res.code === 200) {
 					let datum = res.data.find(datum => datum.task.task_type === 4)
 					if (datum) {
 						// 扩充任务库
 						let task = who_app.stores.allFationTasks.find(task => task._id === datum.task._id)
-						console.log(task)
+						log(task)
 						if (! task) {
 							// 默认为可做可不做
 							datum.task.who_action = 2
@@ -529,19 +529,19 @@ let aaa = setInterval(function () {
 							datum.task.who_action = task.who_action
 						}
 
-						console.log(datum)
+						log(datum)
 
 						if (datum.task.who_action === 1) {
 
 							sleep(waitSeconds).then(_ => {
 								routeHandlers.payUserTask({utid: datum.utid}).then(res => {
-									console.log(res)
+									log(res)
 									if (res.code === 200) {
-										console.log('任务完成')
+										log('任务完成')
 										sleep(waitSeconds).then(_ => autoFationTaskHandler())
 									} else if (res.code === 400) {
 										// 任务材料不足终止循环
-										console.log('材料不足 终止循环')
+										log('材料不足 终止循环')
 									}
 								})
 							})
@@ -551,11 +551,11 @@ let aaa = setInterval(function () {
 							sleep(waitSeconds).then(_ => {
 								routeHandlers.payUserTask({utid: datum.utid}).then(res => {
 									if (res.code === 200) {
-										console.log('任务完成')
+										log('任务完成')
 										sleep(waitSeconds).then(_ => autoFationTaskHandler())
 									} else if (res.code === 400) {
 										// 任务材料不足放弃任务
-										console.log('材料不足 放弃任务')
+										log('材料不足 放弃任务')
 										sleep(waitSeconds).then(_ => {
 											routeHandlers.closeUserTask({tid: datum.utid}).then(res => {
 												sleep(waitSeconds).then(_ => autoFationTaskHandler())
@@ -570,7 +570,7 @@ let aaa = setInterval(function () {
 
 							sleep(waitSeconds).then(_ => {
 								routeHandlers.closeUserTask({tid: datum.utid}).then(res => {
-									console.log('放弃任务')
+									log('放弃任务')
 									sleep(waitSeconds).then(_ => autoFationTaskHandler())
 								})
 							})
@@ -579,10 +579,10 @@ let aaa = setInterval(function () {
 						sleep(waitSeconds).then(_ => {
 							routeHandlers.getFationTask().then(res => {
 								if (res.code === 200) {
-									console.log('接任务')
+									log('接任务')
 									sleep(waitSeconds).then(_ => autoFationTaskHandler())
 								} else {
-									console.log(res)
+									log(res)
 								}
 							})
 						})
@@ -679,8 +679,6 @@ let aaa = setInterval(function () {
 					}
 
 					if (res.data.win > 0) {
-						log('end')
-
 						// 保留最近50场战斗的详细记录
 						let _detailLog = []
 						$($('#logs').children().get().reverse()).each((index, node) => _detailLog.push(node.innerText))
@@ -699,7 +697,7 @@ let aaa = setInterval(function () {
 
 						if (res.data.win === 1) {
 							if (res.data.exp.length === 0) {
-								console.log('全队无收益')
+								log('全队无收益')
 								this.$notify({
 									title: '警告',
 									message: '全队无收益',
@@ -791,16 +789,16 @@ let aaa = setInterval(function () {
 							let rdiff = _.differenceBy(o.users, n.users, 'nickname')
 
 							if (rdiff.length) {
-								console.log(_.map(rdiff, 'nickname').join(',') + ' 离队')
+								log(_.map(rdiff, 'nickname').join(',') + ' 离队')
 							}
 
 							if (diff.length) {
-								console.log(_.map(diff, 'nickname').join(',') + ' 入队')
+								log(_.map(diff, 'nickname').join(',') + ' 入队')
 							}
 						}
 
 						if (currentPlayerNum < maxPlayerNum) {
-							console.log('队伍未满员')
+							log('队伍未满员')
 						}
 					}
 				},
@@ -981,10 +979,10 @@ let aaa = setInterval(function () {
 					this.laterInstances.map(instance => instance.clear())
 
 					this.stores.battleSchedules.map(s => {
-						console.log('load auto farm screen ' + s.screenName)
+						log('load auto farm screen ' + s.screenName)
 						this.laterInstances.push(
 							later.setInterval(function () {
-								console.log('auto select screen ' + s.screenName)
+								log('auto select screen ' + s.screenName)
 								selectBatIdFunc(s.screenId, s.screenName)
 							}, later.parse.text(`at ${s.time}`))
 						)
@@ -999,10 +997,10 @@ let aaa = setInterval(function () {
 				reloadIfOffline() {
 					promiseTimeout(5000, routeHandlers.userInfo())
 						.then(res => {
-							console.log('still alive')
+							log('still alive')
 						})
 						.catch(error => {
-							console.log(error)
+							log(error)
 							location.href = "/login?is_r=1"
 						})
 				},
@@ -1015,7 +1013,7 @@ let aaa = setInterval(function () {
 
 					autoMove(getPath(from, to)).then(s => {
 						// 移动完成
-						console.log('auto move over')
+						log('auto move over')
 					})
 				},
 				fetchAllGoods() {
