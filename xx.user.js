@@ -259,7 +259,7 @@ let who_interval = setInterval(function () {
 	</el-row>
 	<el-card class="box-card" :body-style="{ padding: '5px' }">
 		<div slot="header" class="clearfix">
-			<span>自动FARM</span>
+			<span>时间管理</span>
 			<el-switch
 				v-model="stores.autoFarm"
 				active-color="#13ce66"
