@@ -94,7 +94,11 @@ let aaa = setInterval(function () {
 		}, 60000)
 
 		let who_user_id = user_id
-		let consolelog = true
+
+		if (typeof consolelog === "undefined") {
+			var consolelog = false
+		}
+
 		let roads, maps, mapsKeyByName
 
 		// 下载地图
@@ -272,7 +276,7 @@ let aaa = setInterval(function () {
 				<el-form label-width="120px">
 					<el-form-item label="fallback">
 						<el-select v-model="stores.fallbackId" style="width: 100%;">
-							<el-option v-for="screen in battleScreens" :label="screen.name" :value="screen._id"></el-option>
+							<el-option v-for="screen in battleScreens" :key="screen._id" :label="screen.name" :value="screen._id"></el-option>
 						</el-select>
 					</el-form-item>
 				</el-form>
@@ -304,7 +308,7 @@ let aaa = setInterval(function () {
 					</el-form-item>
 					<el-form-item label="副本">
 						<el-select v-model="form.screenId" style="width: 100%;">
-							<el-option v-for="screen in battleScreens" :label="screen.name" :value="screen._id"></el-option>
+							<el-option v-for="screen in battleScreens" :key="screen._id" :label="screen.name" :value="screen._id"></el-option>
 						</el-select>
 					</el-form-item>
 				</el-form>
