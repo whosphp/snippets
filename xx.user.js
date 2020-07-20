@@ -62,14 +62,6 @@ let who_interval = setInterval(function () {
 		return who_user_id + ':' + key
 	}
 
-	let _oldSelectBatIdFunc = selectBatIdFunc
-	selectBatIdFunc = function (cbatid, name) {
-		who_app.stores.lastBatId = cbatid
-		who_app.stores.lastBatName = name
-
-		_oldSelectBatIdFunc(cbatid, name)
-	}
-
 	setInterval(_ => {
 		initPageUserInfo()
 	}, 60000)
@@ -592,8 +584,6 @@ let who_interval = setInterval(function () {
 					battleSchedules: stores.hasOwnProperty("battleSchedules") ? stores.battleSchedules : [],
 					fallbackId: stores.hasOwnProperty("fallbackId") ? stores.fallbackId : "",
 					autoFarm: stores.hasOwnProperty("autoFarm") ? stores.autoFarm : false,
-					lastBatId: stores.hasOwnProperty("lastBatId") ? stores.lastBatId : "",
-					lastBatName: stores.hasOwnProperty("lastBatName") ? stores.lastBatName : "",
 					autoFation: stores.hasOwnProperty("autoFation") ? stores.autoFation : false,
 					allFationTasks: stores.hasOwnProperty("allFationTasks") ? stores.allFationTasks : [],
 				}
@@ -784,12 +774,6 @@ let who_interval = setInterval(function () {
 					startBatFunc()
 				}
 
-				this.persistentStores()
-			},
-			"stores.lastBatId": function () {
-				this.persistentStores()
-			},
-			"stores.lastBatName": function () {
 				this.persistentStores()
 			},
 			"stores.battleSchedules": function () {
