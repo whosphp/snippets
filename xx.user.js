@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.1
+// @version      1.1.2
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -776,9 +776,6 @@ let who_interval = setInterval(function () {
 					}
 				})
 			}, 30000)
-
-			// 自动帮派任务
-			this.switchAutoFation()
 		},
 		watch: {
 			myTeam(n, o) {
@@ -1043,5 +1040,8 @@ let who_interval = setInterval(function () {
 			}
 		}
 	})
+
+	// 自动帮派任务
+	who_app.switchAutoFation()
 }, 1000)
 
