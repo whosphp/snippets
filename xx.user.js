@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.2
+// @version      1.1.3
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -582,6 +582,7 @@ let who_interval = setInterval(function () {
 
 	let stores = GM_getValue(getKey('stores'), {})
 
+	unsafeWindow._ = _
 	unsafeWindow.who_app = new Vue({
 		el: "#whoapp",
 		data: function () {
@@ -776,6 +777,14 @@ let who_interval = setInterval(function () {
 					}
 				})
 			}, 30000)
+
+			// 如果不幸被分到了没有重连的线路 加入离线检测并重连
+			let serverInfo = JSON.parse(getCookie("server-info"))
+			if (! [13050, 13051, 13052].includes(serverInfo.port)) {
+				setInterval(_ => {
+					this.reloadIfOffline()
+				}, 25000)
+			}
 		},
 		watch: {
 			myTeam(n, o) {
