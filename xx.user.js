@@ -1,11 +1,10 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.3
+// @version      1.1.4
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
-// @exclude      *://yundingxx.com:3366/login*
 // @updateURL    https://cdn.jsdelivr.net/gh/whosphp/snippets/xx.user.js
 // @downloadURL  https://cdn.jsdelivr.net/gh/whosphp/snippets/xx.user.js
 // @grant        unsafeWindow
@@ -20,6 +19,17 @@
 // ==/UserScript==
 unsafeWindow.who_user = null
 
+/**
+ * run at /login page
+ * 如果是从主页面 / 跳转至 /login 页面 且在 /login 页面停留超过 3 秒未跳转, 则尝试 重新登陆
+ */
+if (location.href.indexOf('login') > -1 && document.referrer === (location.origin + '/')) {
+	setTimeout(function () {
+		location.href = '/login?is_r=1'
+	}, 3000)
+}
+
+// run at / page
 let who_interval = setInterval(function () {
 	'use strict'
 
@@ -1029,7 +1039,8 @@ let who_interval = setInterval(function () {
 					})
 					.catch(error => {
 						log(error)
-						location.href = "/login?is_r=1"
+
+						this.pageReload()
 					})
 			},
 			moveTo(from, to, by) {
