@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.4
+// @version      1.1.5
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -98,7 +98,7 @@ let who_interval = setInterval(function () {
 	})
 
 	// 寻路
-	function getPath(from, to) {
+	unsafeWindow.getPath = function (from, to) {
 		let path = []
 
 		for (let i = 0; i < roads.length; ++i) {
@@ -108,12 +108,12 @@ let who_interval = setInterval(function () {
 
 			if (fromIndex > -1 && toIndex > -1) {
 				if (fromIndex <= toIndex) {
-					path = road.slice(fromIndex, toIndex);
+					path = road.slice(fromIndex, toIndex + 1);
 				} else {
-					path = road.slice(toIndex, fromIndex).reverse()
+					path = road.slice(toIndex, fromIndex + 1).reverse()
 				}
 
-				return path
+				return path.slice(1)
 			}
 		}
 
@@ -137,7 +137,7 @@ let who_interval = setInterval(function () {
 			}
 		}
 
-		return path
+		return path.slice(1)
 	}
 
 	// 换图
