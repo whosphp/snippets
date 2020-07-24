@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.7
+// @version      1.1.8
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -142,7 +142,7 @@ let who_interval = setInterval(function () {
 			let fromIndex = road.indexOf(from)
 
 			if (fromIndex > -1) {
-				path = path.concat(road.slice(0, fromIndex).reverse())
+				path = path.concat(road.slice(0, fromIndex + 1).reverse())
 				break
 			}
 		}
@@ -216,6 +216,7 @@ let who_interval = setInterval(function () {
 	<el-row>
 		<el-button size="mini" type="danger" @click="pageReload">刷新</el-button>
 		<el-button size="mini" type="warning" @click="gracefulReload = true">平滑刷新</el-button>
+		<el-button size="mini" type="success" @click="autoWbtHandler" :loading="autoWbt">挖宝</el-button>
 	</el-row>
 	<el-row>
 		自动帮派
@@ -443,36 +444,34 @@ let who_interval = setInterval(function () {
 				}
 			}
 		},
-		wbt: async function (goods) {
-			for (let i = 0; i < goods.length; i++) {
-				log("挖宝")
-				let good = goods[i]
-				await sleep(1100)
-				let targetMapName = good.info.match(/【(.*)】/)[1]
-				log(targetMapName)
-				log(global.mid, mapsKeyByName[targetMapName].id)
+		wbt: async function (treasureMaps) {
+			treasureMaps = _.groupBy(treasureMaps, gs => gs.info.match(/【(.*)】/)[1])
+			for (let targetMapName in treasureMaps) {
+				let goods = treasureMaps[targetMapName]
+				log(global.mid)
+				log(mapsKeyByName[targetMapName].id)
 				await autoMove(getPath(global.mid, mapsKeyByName[targetMapName].id))
-				let wbtRes = await routeHandlers.wbt({
-					ugid: good._id
-				})
-				log(wbtRes)
+				for (let i = 0; i < goods.length; i++) {
+					log("挖宝")
+					let good = goods[i]
+					await sleep(1100)
+					let wbtRes = await routeHandlers.wbt({ugid: good._id})
+					log(wbtRes)
+				}
 			}
 		},
 		// 自动挖宝 挖宝前记录位置, 挖宝后自动返回
-		autoWbt: function () {
+		autoWbt: async function () {
 			let restoreMid = global.mid
-			helpers.fetchAllGoods()
-				.then(allGoods => {
-					// 使用所有藏宝图
-					helpers.useGoods(allGoods.filter(g => g.hasOwnProperty('goods') && ["藏宝图", "高级藏宝图"].includes(g.goods.name)))
-						.then(_ => {
-							helpers.fetchAllGoods().then(allGoods => {
-								helpers.wbt(allGoods.filter(g => g.hasOwnProperty('name') && g.name.indexOf("藏宝图") > -1)).then(_ => {
-									autoMove(getPath(global.mid, restoreMid))
-								})
-							})
-						})
-				})
+			let allGoods = await this.fetchAllGoods()
+
+			// 使用所有藏宝图
+			await this.useGoods(allGoods.filter(g => g.hasOwnProperty('goods') && ["藏宝图", "高级藏宝图"].includes(g.goods.name)))
+
+			allGoods = await this.fetchAllGoods()
+			await helpers.wbt(allGoods.filter(g => g.hasOwnProperty('name') && g.name.indexOf("藏宝图") > -1))
+
+			await autoMove(getPath(global.mid, restoreMid))
 		}
 	}
 
@@ -612,6 +611,7 @@ let who_interval = setInterval(function () {
 
 	let stores = GM_getValue(getKey('stores'), {})
 
+	Vue.prototype.$helpers = helpers
 	unsafeWindow._ = _
 	unsafeWindow.who_app = new Vue({
 		el: "#whoapp",
@@ -645,6 +645,8 @@ let who_interval = setInterval(function () {
 				temp: {
 					detail: []
 				},
+
+				autoWbt: false,
 
 				allGoods: [],
 
@@ -954,6 +956,10 @@ let who_interval = setInterval(function () {
 			}
 		},
 		methods: {
+			autoWbtHandler() {
+				this.autoWbt = true
+				this.$helpers.autoWbt().then(_ => this.autoWbt = false)
+			},
 			switchAutoFation() {
 				if (this.intervalIds.hasOwnProperty("autoFation")) {
 					clearInterval(this.intervalIds.autoFation)
@@ -1084,7 +1090,7 @@ let who_interval = setInterval(function () {
 				})
 			},
 			fetchAllGoods() {
-				helpers.fetchAllGoods().then(gs => this.allGoods = gs)
+				this.$helpers.fetchAllGoods().then(gs => this.allGoods = gs)
 			}
 		}
 	})
