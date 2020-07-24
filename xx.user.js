@@ -720,7 +720,7 @@ let who_interval = setInterval(function () {
 							});
 
 							// 无收益自动切换为fallback副本
-							if (this.stores.autoFarm && this.stores.fallbackId) {
+							if (this.stores.autoBattle && this.stores.autoFarm && this.stores.fallbackId) {
 								selectBatIdFunc(this.stores.fallbackId, this.fallbackName)
 							}
 						}
