@@ -771,7 +771,7 @@ let who_interval = setInterval(function () {
 						this.bat_fail++
 					}
 
-					if (this.batLogs.unshift(_batLog) > 99) {
+					if (this.batLogs.unshift(_batLog) > 33) {
 						this.batLogs.pop()
 					}
 
