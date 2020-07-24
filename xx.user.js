@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.5
+// @version      1.1.6
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -33,17 +33,21 @@ if (location.href.indexOf('login') > -1 && document.referrer === (location.origi
 let who_interval = setInterval(function () {
 	'use strict'
 
+	function fetchUserInfo() {
+		pomelo.request("connector.userHandler.userInfo", {}, data => {
+			if (data.code === 200) {
+				unsafeWindow.who_user = data.user
+				who_user.nextLevelGetExp = data.nextLevelGetExp
+			}
+		})
+	}
+
 	// 等待 pomelo 初始化 ws 链接
 	if (typeof user_id === "undefined") {
 		return
 	} else {
 		if (who_user === null) {
-			pomelo.request("connector.userHandler.userInfo", {}, data => {
-				if (data.code === 200) {
-					unsafeWindow.who_user = data.user
-					who_user.nextLevelGetExp = data.nextLevelGetExp
-				}
-			})
+			fetchUserInfo()
 
 			return
 		} else {
@@ -73,7 +77,7 @@ let who_interval = setInterval(function () {
 	}
 
 	setInterval(_ => {
-		initPageUserInfo()
+		fetchUserInfo()
 	}, 60000)
 
 	let who_user_id = user_id
