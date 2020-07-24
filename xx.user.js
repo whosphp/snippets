@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.6
+// @version      1.1.7
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -18,6 +18,8 @@
 // @run-at       document-start
 // ==/UserScript==
 unsafeWindow.who_user = null
+unsafeWindow.GM_setValue = GM_setValue
+unsafeWindow.GM_getValue = GM_getValue
 
 /**
  * run at /login page
@@ -57,15 +59,28 @@ let who_interval = setInterval(function () {
 
 	// 注入hooks
 	let oldRequest = pomelo.request
-	let routesToHook = [
-		"connector.userHandler.getMyGoods",
-	]
+	const routesToHook = {
+		"connector.userHandler.getMyGoods": {
+			log: true
+		},
+		"connector.teamHandler.createdTeam": {
+			log: false,
+			callback: function (res) {
+				console.log(res)
+				if (res && res.code === 200) {
+					GM_setValue("teamId", res.data.team._id)
+				}
+			}
+		},
+	}
 	pomelo.request = function(route, msg, cb) {
-		let shouldLog = routesToHook.includes(route)
+		let shouldLog = routesToHook.hasOwnProperty(route) && routesToHook[route].log
+		let callback = routesToHook.hasOwnProperty(route) && routesToHook[route].callback
 
 		let oldCb = cb
 		cb = function(res) {
 			shouldLog && log(res)
+			callback && callback(res)
 			oldCb(res)
 		}
 
@@ -633,6 +648,7 @@ let who_interval = setInterval(function () {
 				allGoods: [],
 
 				myTeam: {},
+				isTeamLeader: false,
 
 				levelUpPercentage: 0,
 				nextLevelUpAt: '-',
@@ -788,6 +804,13 @@ let who_interval = setInterval(function () {
 				}).then(res => {
 					if (res.code === 200) {
 						this.myTeam = res.data.myTeam ? res.data.myTeam : {}
+
+						if (! res.data.myTeam) {
+							let teamId = GM_getValue("teamId")
+							if (teamId) {
+								addTeamFunc(teamId)
+							}
+						}
 					}
 				})
 			}, 30000)
