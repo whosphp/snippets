@@ -7,6 +7,7 @@
 // @match        *://yundingxx.com:3366/*
 // @updateURL    https://cdn.jsdelivr.net/gh/whosphp/snippets/xx.user.js
 // @downloadURL  https://cdn.jsdelivr.net/gh/whosphp/snippets/xx.user.js
+// @supportURL	 https://github.com/whosphp/snippets
 // @grant        unsafeWindow
 // @grant        GM_setValue
 // @grant        GM_getValue
