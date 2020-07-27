@@ -688,7 +688,6 @@ let who_interval = setInterval(function () {
 			this.turnOffSystemAutoBattle()
 
 			later.date.localTime()
-			this.applyBattleSchedules()
 
 			// 如果过去五分钟无战斗, 则尝试开启战斗
 			setInterval(_ => {
@@ -882,17 +881,22 @@ let who_interval = setInterval(function () {
 			"levelUpPercentage": function (n) {
 				$('#whoExpBar').css('width', `${n}%`)
 			},
-			"stores.autoFarm": function () {
-				if (this.stores.autoFarm) {
-					if (! this.stores.fallbackId) {
-						this.dialogFallbackFormVisible = true
+			"stores.autoFarm": {
+				handler: function () {
+					if (this.stores.autoFarm) {
+						if (! this.stores.fallbackId) {
+							this.dialogFallbackFormVisible = true
 
-						this.stores.autoFarm = false
+							this.stores.autoFarm = false
+
+							return
+						}
 					}
-				}
 
-				this.applyBattleSchedules()
-				this.persistentStores()
+					this.applyBattleSchedules()
+					this.persistentStores()
+				},
+				immediate: true
 			},
 			"stores.autoBattle": function (n) {
 				this.turnOffSystemAutoBattle()
@@ -1086,6 +1090,7 @@ let who_interval = setInterval(function () {
 			},
 			applyBattleSchedules() {
 				this.laterInstances.map(instance => instance.clear())
+				this.laterInstances = []
 
 				if (this.stores.autoFarm) {
 					this.stores.battleSchedules.map(s => {
