@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         yunding2.0
+// @name         yunding2.0-dev
 // @namespace    http://tampermonkey.net/
-// @version      1.1.8
+// @version      1.1.9
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -11,6 +11,7 @@
 // @grant        unsafeWindow
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.min.js
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
@@ -69,7 +70,10 @@ let who_interval = setInterval(function () {
 			callback: function (res) {
 				console.log(res)
 				if (res && res.code === 200) {
-					GM_setValue("teamId", res.data.team._id)
+					GM_setValue("team", {
+						id: res.data.team._id,
+						leader: res.data.team.leader
+					})
 				}
 			}
 		},
@@ -199,7 +203,7 @@ let who_interval = setInterval(function () {
     position: absolute;
     left: 0;
 ">
-    
+
 </div>
 <div id="whoExpBar" style="
     width: 0;
@@ -217,6 +221,14 @@ let who_interval = setInterval(function () {
 		<el-button size="mini" type="danger" @click="pageReload">刷新</el-button>
 		<el-button size="mini" type="warning" @click="gracefulReload = true">平滑刷新</el-button>
 		<el-button size="mini" type="success" @click="autoWbtHandler" :loading="autoWbt">挖宝</el-button>
+	</el-row>
+	<el-row>
+		省内存
+		<el-switch
+			v-model="stores.saveMemory"
+		  	active-color="#13ce66"
+		  	inactive-color="#ff4949">
+		</el-switch>
 	</el-row>
 	<el-row>
 		自动帮派
@@ -281,7 +293,7 @@ let who_interval = setInterval(function () {
 			<el-button @click="batReset" size="mini" icon="el-icon-refresh-left" type="danger"></el-button>
 		</el-button-group>
 	</el-row>
-	<el-row>		
+	<el-row>
 		<el-button-group>
 			<el-button type="success" size="mini">{{ expPerSecond }}</el-button>
 			<el-button type="primary" size="mini">{{ nextLevelUpAt }}</el-button>
@@ -308,12 +320,12 @@ let who_interval = setInterval(function () {
 					<el-button type="primary" @click="dialogFallbackFormVisible = false">确定</el-button>
 				</div>
 			</el-dialog>
-			
-			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text" 
+
+			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text"
 				@click="stores.battleSchedules = []">
 				重置
 			</el-button>
-			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text" 
+			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text"
 				@click="dialogScheduleFormVisible = true">
 				新增
 			</el-button>
@@ -400,6 +412,8 @@ let who_interval = setInterval(function () {
 		["connector.userHandler.getMyGoods", "getMyGoods"],
 		["connector.userHandler.useGoods", "useGoods"],
 		["connector.userHandler.wbt", "wbt"],
+		["connector.teamHandler.switchCombatScreen", "switchCombatScreen"],
+		["connector.teamHandler.addTeam", "addTeam"],
 	]
 	let routeHandlers = {}
 	routes.forEach(route => {
@@ -666,6 +680,7 @@ let who_interval = setInterval(function () {
 					autoFarm: stores.hasOwnProperty("autoFarm") ? stores.autoFarm : false,
 					autoFation: stores.hasOwnProperty("autoFation") ? stores.autoFation : false,
 					allFationTasks: stores.hasOwnProperty("allFationTasks") ? stores.allFationTasks : [],
+					saveMemory: stores.hasOwnProperty("saveMemory") ? stores.saveMemory : false,
 				}
 			}
 		},
@@ -801,6 +816,8 @@ let who_interval = setInterval(function () {
 				}
 			})
 
+			let complexMode = true
+
 			setInterval(_ => {
 				routeHandlers.getTeamList({
 					mid: this.getMid(),
@@ -809,10 +826,21 @@ let who_interval = setInterval(function () {
 						this.myTeam = res.data.myTeam ? res.data.myTeam : {}
 
 						if (! res.data.myTeam) {
-							let teamId = GM_getValue("teamId")
-							if (teamId) {
-								addTeamFunc(teamId)
+							let team = GM_getValue("team")
+							if (team) {
+								if (complexMode) {
+									GM_setValue("ydxx-message", {
+										from: who_user_id,
+										to: team.leader,
+										action: "requestJoinInTeam",
+										at: new Date()
+									})
+								} else {
+									addTeamFunc(team.id)
+								}
 							}
+
+
 						}
 					}
 				})
@@ -877,6 +905,13 @@ let who_interval = setInterval(function () {
 			},
 			"stores.battleSchedules": function () {
 				this.persistentStores()
+			},
+			"stores.saveMemory": {
+				handler: function () {
+					this.saveMemoryHandler()
+					this.persistentStores()
+				},
+				immediate: true
 			},
 			"stores.fallbackId": function () {
 				this.persistentStores()
@@ -1091,11 +1126,102 @@ let who_interval = setInterval(function () {
 			},
 			fetchAllGoods() {
 				this.$helpers.fetchAllGoods().then(gs => this.allGoods = gs)
+			},
+			saveMemoryHandler() {
+				if (this.stores.saveMemory) {
+					// 关闭战斗信息的展示和更新
+					pomelo._callbacks.onRoundBatEnd.splice(0, 1)
+					pomelo._callbacks.onStartBat.splice(0, 1)
+				}
 			}
 		}
 	})
 
 	// 自动帮派任务
 	who_app.switchAutoFation()
+
+	let tempThrottle = _.throttle(function () {
+		who_app.stores.autoBattle = true
+	}, 8100, {
+		leading: false
+	})
+	GM_addValueChangeListener("ydxx-message", function (name, oldVal, newVal, remote) {
+		let from, to, action
+		({from, to, action} = newVal)
+
+		console.log(from, to, action)
+
+		if (to === who_user_id) {
+			if (action === "requestJoinInTeam") {
+				showMyTeamFunc(1)
+				who_app.stores.autoBattle = false
+
+				// 切换至 深渊幻镜
+				let cbatid = "5ef9ff6669e97e5e22ccd5c5"
+				routeHandlers.switchCombatScreen({
+					cbatid: "5ef9ff6669e97e5e22ccd5c5"
+				}).then(res => {
+					console.log(res)
+
+					let name = "深渊幻镜"
+
+					layer.msg(`更换场景【${name}】`, {
+						offset: '50%'
+					});
+					$("#bat-screen-id").text(name)
+					$("#bat-screen-id-h").val(cbatid)
+
+					tempThrottle()
+
+					GM_setValue("ydxx-message", {
+						from: who_user_id,
+						to: from,
+						action: "approvedToJoinInTeam",
+						at: new Date()
+					})
+				})
+			}
+
+			if (action === "approvedToJoinInTeam") {
+				let team = GM_getValue("team")
+				routeHandlers.addTeam({
+					tid: team.id
+				}).then(res => {
+					console.log(res)
+
+					GM_setValue("ydxx-message", {
+						from: who_user_id,
+						to: from,
+						action: "joinInTeam",
+						at: new Date()
+					})
+				})
+			}
+
+			if (action === "joinInTeam") {
+				showMyTeamFunc(0)
+				// 切回 丛林
+				sleep(1100).then(() => {
+					let cbatid = "5eef4182c163cd9c0693e02e"
+
+					routeHandlers.switchCombatScreen({
+						cbatid
+					}).then(res => {
+						console.log(res)
+
+						let name = "丛林仙境"
+
+						layer.msg(`更换场景【${name}】`, {
+							offset: '50%'
+						});
+						$("#bat-screen-id").text(name)
+						$("#bat-screen-id-h").val(cbatid)
+
+						tempThrottle()
+					})
+				})
+			}
+		}
+	})
 }, 1000)
 
