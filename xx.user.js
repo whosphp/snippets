@@ -891,6 +891,7 @@ let who_interval = setInterval(function () {
 					}
 				}
 
+				this.applyBattleSchedules()
 				this.persistentStores()
 			},
 			"stores.autoBattle": function (n) {
@@ -904,6 +905,7 @@ let who_interval = setInterval(function () {
 				this.persistentStores()
 			},
 			"stores.battleSchedules": function () {
+				this.applyBattleSchedules()
 				this.persistentStores()
 			},
 			"stores.saveMemory": {
@@ -1085,15 +1087,17 @@ let who_interval = setInterval(function () {
 			applyBattleSchedules() {
 				this.laterInstances.map(instance => instance.clear())
 
-				this.stores.battleSchedules.map(s => {
-					log('load auto farm screen ' + s.screenName)
-					this.laterInstances.push(
-						later.setInterval(function () {
-							log('auto select screen ' + s.screenName)
-							selectBatIdFunc(s.screenId, s.screenName)
-						}, later.parse.text(`at ${s.time}`))
-					)
-				})
+				if (this.stores.autoFarm) {
+					this.stores.battleSchedules.map(s => {
+						log('load auto farm screen ' + s.screenName)
+						this.laterInstances.push(
+							later.setInterval(function () {
+								log('auto select screen ' + s.screenName)
+								selectBatIdFunc(s.screenId, s.screenName)
+							}, later.parse.text(`at ${s.time}`))
+						)
+					})
+				}
 			},
 			getMid() {
 				return typeof global === "undefined" ? 1 : (typeof global.mid !== "undefined" ? global.mid : 1)
