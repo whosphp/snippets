@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0-dev
 // @namespace    http://tampermonkey.net/
-// @version      1.1.9
+// @version      1.1.10
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
