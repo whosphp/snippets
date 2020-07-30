@@ -17,6 +17,7 @@
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
 // @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
+// @require      https://unpkg.com/reconnecting-websocket@4.4.0/dist/reconnecting-websocket-iife.js
 // @run-at       document-start
 // ==/UserScript==
 unsafeWindow.who_user = null
@@ -229,6 +230,36 @@ let who_interval = setInterval(function () {
 		  	active-color="#13ce66"
 		  	inactive-color="#ff4949">
 		</el-switch>
+	</el-row>
+	<el-row>
+		开黑(换队刷新)
+		<el-select v-model="stores.privateTeam" placeholder="请选择" size="mini" style="width: 120px;">
+			<el-option
+				v-for="team in stores.privateTeams"
+				:key="team.value"
+				:label="team.label"
+				:value="team.value">
+			</el-option>
+  		</el-select>
+  		<el-button style="float: right; padding: 3px 0" type="text"
+				@click="dialogPrivateTeamFormVisible = true">
+				新增
+		</el-button>
+		<el-dialog title="新增队伍" :visible.sync="dialogPrivateTeamFormVisible" :modal="false" :append-to-body="true">
+			<el-form :model="form" label-width="120px">
+				<el-form-item label="队伍Id">
+					<el-input v-model="form.privateTeamVal"></el-input>
+			    </el-form-item>
+			    <el-form-item label="队伍名">
+					<el-input v-model="form.privateTeamLabel"></el-input>
+			    </el-form-item>
+			</el-form>
+
+			<div slot="footer" class="dialog-footer">
+				<el-button type="primary" @click="dialogPrivateTeamFormVisible = false">取消</el-button>
+				<el-button type="success" @click="addNewPrivateTeam">确定</el-button>
+			</div>
+		</el-dialog>
 	</el-row>
 	<el-row>
 		自动帮派
@@ -647,9 +678,12 @@ let who_interval = setInterval(function () {
 				dialogFallbackFormVisible: false,
 				dialogShowDetailLogVisible: false,
 				dialogAutoFationSettings: false,
+				dialogPrivateTeamFormVisible: false,
 				form: {
 					screenId: '',
 					screenTime: '',
+					privateTeamVal: '',
+					privateTeamLabel: '',
 				},
 				logData: false,
 
@@ -681,6 +715,8 @@ let who_interval = setInterval(function () {
 					autoFation: stores.hasOwnProperty("autoFation") ? stores.autoFation : false,
 					allFationTasks: stores.hasOwnProperty("allFationTasks") ? stores.allFationTasks : [],
 					saveMemory: stores.hasOwnProperty("saveMemory") ? stores.saveMemory : false,
+					privateTeam: stores.hasOwnProperty("privateTeam") ? stores.privateTeam : "",
+					privateTeams: stores.hasOwnProperty("privateTeams") ? stores.privateTeams : [],
 				}
 			}
 		},
@@ -815,8 +851,6 @@ let who_interval = setInterval(function () {
 				}
 			})
 
-			let complexMode = true
-
 			setInterval(_ => {
 				routeHandlers.getTeamList({
 					mid: this.getMid(),
@@ -825,21 +859,14 @@ let who_interval = setInterval(function () {
 						this.myTeam = res.data.myTeam ? res.data.myTeam : {}
 
 						if (! res.data.myTeam) {
-							let team = GM_getValue("team")
-							if (team) {
-								if (complexMode) {
-									GM_setValue("ydxx-message", {
-										from: who_user_id,
-										to: team.leader,
-										action: "requestJoinInTeam",
-										at: new Date()
-									})
-								} else {
-									addTeamFunc(team.id)
-								}
-							}
-
-
+							// 广播至当前组
+							ws && ws.send(JSON.stringify({
+								type: "ydxx-message",
+								from: who_user_id,
+								action: "requestJoinInTeam",
+							}))
+						} else {
+							this.isTeamLeader = res.data.myTeam.users[0]._id === who_user_id
 						}
 					}
 				})
@@ -910,6 +937,13 @@ let who_interval = setInterval(function () {
 			},
 			"stores.battleSchedules": function () {
 				this.applyBattleSchedules()
+				this.persistentStores()
+			},
+			"stores.privateTeam": function (n, o) {
+				this.persistentStores()
+				this.pageReload()
+			},
+			"stores.privateTeams": function () {
 				this.persistentStores()
 			},
 			"stores.saveMemory": {
@@ -1027,6 +1061,22 @@ let who_interval = setInterval(function () {
 				this.form.screenId = ''
 				this.form.screenTime = ''
 				this.dialogScheduleFormVisible = false
+			},
+			addNewPrivateTeam() {
+				if (! this.form.privateTeamVal || ! this.form.privateTeamLabel) {
+					this.$notify({
+						title: '警告',
+						message: '队伍Id和队伍名不能为空',
+						type: 'warning'
+					})
+					return
+				}
+
+				this.stores.privateTeams.push({
+					value: this.form.privateTeamVal,
+					label: this.form.privateTeamLabel,
+				})
+				this.dialogPrivateTeamFormVisible = false
 			},
 			format(percentage) {
 				return `${this.expPerSecond}(s) / ${this.nextLevelUpAt} / ${percentage}%`
@@ -1154,71 +1204,50 @@ let who_interval = setInterval(function () {
 	}, 8100, {
 		leading: false
 	})
-	GM_addValueChangeListener("ydxx-message", function (name, oldVal, newVal, remote) {
-		let from, to, action
-		({from, to, action} = newVal)
 
-		console.log(from, to, action)
+	let ws = createWs(who_app.stores.privateTeam)
 
-		if (to === who_user_id) {
-			if (action === "requestJoinInTeam") {
-				showMyTeamFunc(1)
-				who_app.stores.autoBattle = false
+	function createWs(teamId) {
+		if (! teamId) {
+			return null
+		}
 
-				// 切换至 深渊幻镜
-				let cbatid = "5ef9ff6669e97e5e22ccd5c5"
-				routeHandlers.switchCombatScreen({
-					cbatid: "5ef9ff6669e97e5e22ccd5c5"
-				}).then(res => {
-					console.log(res)
+		let ws = new ReconnectingWebSocket(`ws://frp4.ioiox.com:61033`)
 
-					let name = "深渊幻镜"
+		ws.onopen = function () {
+			ws.send(JSON.stringify({
+				type: "login",
+				uid: who_user_id,
+				gid: teamId
+			}))
+		}
 
-					layer.msg(`更换场景【${name}】`, {
-						offset: '50%'
-					});
-					$("#bat-screen-id").text(name)
-					$("#bat-screen-id-h").val(cbatid)
-
-					tempThrottle()
-
-					GM_setValue("ydxx-message", {
-						from: who_user_id,
-						to: from,
-						action: "approvedToJoinInTeam",
-						at: new Date()
-					})
-				})
+		ws.onmessage = function (event) {
+			let from, to, type, action
+			({from, to, type, action} = JSON.parse(event.data))
+			if (type === "ping") {
+				return
 			}
 
-			if (action === "approvedToJoinInTeam") {
-				let team = GM_getValue("team")
-				routeHandlers.addTeam({
-					tid: team.id
-				}).then(res => {
-					console.log(res)
+			console.log(from, to, type, action)
 
-					GM_setValue("ydxx-message", {
-						from: who_user_id,
-						to: from,
-						action: "joinInTeam",
-						at: new Date()
-					})
-				})
-			}
+			if (type === "ydxx-message") {
+				if (action === "requestJoinInTeam") {
+					if (! who_app.isTeamLeader) {
+						return
+					}
 
-			if (action === "joinInTeam") {
-				showMyTeamFunc(0)
-				// 切回 丛林
-				sleep(1100).then(() => {
-					let cbatid = "5eef4182c163cd9c0693e02e"
+					showMyTeamFunc(1)
+					who_app.stores.autoBattle = false
 
+					// 切换至 深渊幻镜
+					let cbatid = "5ef9ff6669e97e5e22ccd5c5"
 					routeHandlers.switchCombatScreen({
-						cbatid
+						cbatid: "5ef9ff6669e97e5e22ccd5c5"
 					}).then(res => {
 						console.log(res)
 
-						let name = "丛林仙境"
+						let name = "深渊幻镜"
 
 						layer.msg(`更换场景【${name}】`, {
 							offset: '50%'
@@ -1227,10 +1256,60 @@ let who_interval = setInterval(function () {
 						$("#bat-screen-id-h").val(cbatid)
 
 						tempThrottle()
+
+						ws.send(JSON.stringify({
+							type: "ydxx-message",
+							from: who_user_id,
+							to: from,
+							action: "approvedToJoinInTeam",
+						}))
 					})
-				})
+				}
+
+				if (action === "approvedToJoinInTeam") {
+					let team = GM_getValue("team")
+					routeHandlers.addTeam({
+						tid: team.id
+					}).then(res => {
+						console.log(res)
+
+						ws.send(JSON.stringify({
+							type: "ydxx-message",
+							from: who_user_id,
+							to: from,
+							action: "joinInTeam",
+						}))
+					})
+				}
+
+				if (action === "joinInTeam") {
+					showMyTeamFunc(0)
+					// 切回 丛林
+					sleep(1100).then(() => {
+						let cbatid = "5eef4182c163cd9c0693e02e"
+
+						routeHandlers.switchCombatScreen({
+							cbatid
+						}).then(res => {
+							console.log(res)
+
+							let name = "丛林仙境"
+
+							layer.msg(`更换场景【${name}】`, {
+								offset: '50%'
+							});
+							$("#bat-screen-id").text(name)
+							$("#bat-screen-id-h").val(cbatid)
+
+							tempThrottle()
+						})
+					})
+				}
 			}
 		}
-	})
+
+		return ws
+	}
+
 }, 1000)
 
