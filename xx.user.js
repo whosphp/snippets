@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         yunding2.0
+// @name         yunding2.0-dev
 // @namespace    http://tampermonkey.net/
-// @version      1.1.8
+// @version      1.1.10
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -11,11 +11,13 @@
 // @grant        unsafeWindow
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.min.js
 // @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
 // @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
+// @require      https://unpkg.com/reconnecting-websocket@4.4.0/dist/reconnecting-websocket-iife.js
 // @run-at       document-start
 // ==/UserScript==
 unsafeWindow.who_user = null
@@ -69,7 +71,10 @@ let who_interval = setInterval(function () {
 			callback: function (res) {
 				console.log(res)
 				if (res && res.code === 200) {
-					GM_setValue("teamId", res.data.team._id)
+					GM_setValue("team", {
+						id: res.data.team._id,
+						leader: res.data.team.leader
+					})
 				}
 			}
 		},
@@ -199,7 +204,7 @@ let who_interval = setInterval(function () {
     position: absolute;
     left: 0;
 ">
-    
+
 </div>
 <div id="whoExpBar" style="
     width: 0;
@@ -217,6 +222,44 @@ let who_interval = setInterval(function () {
 		<el-button size="mini" type="danger" @click="pageReload">刷新</el-button>
 		<el-button size="mini" type="warning" @click="gracefulReload = true">平滑刷新</el-button>
 		<el-button size="mini" type="success" @click="autoWbtHandler" :loading="autoWbt">挖宝</el-button>
+	</el-row>
+	<el-row>
+		省内存
+		<el-switch
+			v-model="stores.saveMemory"
+		  	active-color="#13ce66"
+		  	inactive-color="#ff4949">
+		</el-switch>
+	</el-row>
+	<el-row>
+		开黑(换队刷新)
+		<el-select v-model="stores.privateTeam" placeholder="请选择" size="mini" style="width: 120px;">
+			<el-option
+				v-for="team in stores.privateTeams"
+				:key="team.value"
+				:label="team.label"
+				:value="team.value">
+			</el-option>
+  		</el-select>
+  		<el-button style="float: right; padding: 3px 0" type="text"
+				@click="dialogPrivateTeamFormVisible = true">
+				新增
+		</el-button>
+		<el-dialog title="新增队伍" :visible.sync="dialogPrivateTeamFormVisible" :modal="false" :append-to-body="true">
+			<el-form :model="form" label-width="120px">
+				<el-form-item label="队伍Id">
+					<el-input v-model="form.privateTeamVal"></el-input>
+			    </el-form-item>
+			    <el-form-item label="队伍名">
+					<el-input v-model="form.privateTeamLabel"></el-input>
+			    </el-form-item>
+			</el-form>
+
+			<div slot="footer" class="dialog-footer">
+				<el-button type="primary" @click="dialogPrivateTeamFormVisible = false">取消</el-button>
+				<el-button type="success" @click="addNewPrivateTeam">确定</el-button>
+			</div>
+		</el-dialog>
 	</el-row>
 	<el-row>
 		自动帮派
@@ -281,7 +324,7 @@ let who_interval = setInterval(function () {
 			<el-button @click="batReset" size="mini" icon="el-icon-refresh-left" type="danger"></el-button>
 		</el-button-group>
 	</el-row>
-	<el-row>		
+	<el-row>
 		<el-button-group>
 			<el-button type="success" size="mini">{{ expPerSecond }}</el-button>
 			<el-button type="primary" size="mini">{{ nextLevelUpAt }}</el-button>
@@ -308,12 +351,12 @@ let who_interval = setInterval(function () {
 					<el-button type="primary" @click="dialogFallbackFormVisible = false">确定</el-button>
 				</div>
 			</el-dialog>
-			
-			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text" 
+
+			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text"
 				@click="stores.battleSchedules = []">
 				重置
 			</el-button>
-			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text" 
+			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text"
 				@click="dialogScheduleFormVisible = true">
 				新增
 			</el-button>
@@ -400,6 +443,8 @@ let who_interval = setInterval(function () {
 		["connector.userHandler.getMyGoods", "getMyGoods"],
 		["connector.userHandler.useGoods", "useGoods"],
 		["connector.userHandler.wbt", "wbt"],
+		["connector.teamHandler.switchCombatScreen", "switchCombatScreen"],
+		["connector.teamHandler.addTeam", "addTeam"],
 	]
 	let routeHandlers = {}
 	routes.forEach(route => {
@@ -633,9 +678,12 @@ let who_interval = setInterval(function () {
 				dialogFallbackFormVisible: false,
 				dialogShowDetailLogVisible: false,
 				dialogAutoFationSettings: false,
+				dialogPrivateTeamFormVisible: false,
 				form: {
 					screenId: '',
 					screenTime: '',
+					privateTeamVal: '',
+					privateTeamLabel: '',
 				},
 				logData: false,
 
@@ -666,6 +714,9 @@ let who_interval = setInterval(function () {
 					autoFarm: stores.hasOwnProperty("autoFarm") ? stores.autoFarm : false,
 					autoFation: stores.hasOwnProperty("autoFation") ? stores.autoFation : false,
 					allFationTasks: stores.hasOwnProperty("allFationTasks") ? stores.allFationTasks : [],
+					saveMemory: stores.hasOwnProperty("saveMemory") ? stores.saveMemory : false,
+					privateTeam: stores.hasOwnProperty("privateTeam") ? stores.privateTeam : "",
+					privateTeams: stores.hasOwnProperty("privateTeams") ? stores.privateTeams : [],
 				}
 			}
 		},
@@ -673,7 +724,6 @@ let who_interval = setInterval(function () {
 			this.turnOffSystemAutoBattle()
 
 			later.date.localTime()
-			this.applyBattleSchedules()
 
 			// 如果过去五分钟无战斗, 则尝试开启战斗
 			setInterval(_ => {
@@ -809,10 +859,14 @@ let who_interval = setInterval(function () {
 						this.myTeam = res.data.myTeam ? res.data.myTeam : {}
 
 						if (! res.data.myTeam) {
-							let teamId = GM_getValue("teamId")
-							if (teamId) {
-								addTeamFunc(teamId)
-							}
+							// 广播至当前组
+							ws && ws.send(JSON.stringify({
+								type: "ydxx-message",
+								from: who_user_id,
+								action: "requestJoinInTeam",
+							}))
+						} else {
+							this.isTeamLeader = res.data.myTeam.users[0]._id === who_user_id
 						}
 					}
 				})
@@ -854,16 +908,22 @@ let who_interval = setInterval(function () {
 			"levelUpPercentage": function (n) {
 				$('#whoExpBar').css('width', `${n}%`)
 			},
-			"stores.autoFarm": function () {
-				if (this.stores.autoFarm) {
-					if (! this.stores.fallbackId) {
-						this.dialogFallbackFormVisible = true
+			"stores.autoFarm": {
+				handler: function () {
+					if (this.stores.autoFarm) {
+						if (! this.stores.fallbackId) {
+							this.dialogFallbackFormVisible = true
 
-						this.stores.autoFarm = false
+							this.stores.autoFarm = false
+
+							return
+						}
 					}
-				}
 
-				this.persistentStores()
+					this.applyBattleSchedules()
+					this.persistentStores()
+				},
+				immediate: true
 			},
 			"stores.autoBattle": function (n) {
 				this.turnOffSystemAutoBattle()
@@ -876,7 +936,22 @@ let who_interval = setInterval(function () {
 				this.persistentStores()
 			},
 			"stores.battleSchedules": function () {
+				this.applyBattleSchedules()
 				this.persistentStores()
+			},
+			"stores.privateTeam": function (n, o) {
+				this.persistentStores()
+				this.pageReload()
+			},
+			"stores.privateTeams": function () {
+				this.persistentStores()
+			},
+			"stores.saveMemory": {
+				handler: function () {
+					this.saveMemoryHandler()
+					this.persistentStores()
+				},
+				immediate: true
 			},
 			"stores.fallbackId": function () {
 				this.persistentStores()
@@ -987,6 +1062,22 @@ let who_interval = setInterval(function () {
 				this.form.screenTime = ''
 				this.dialogScheduleFormVisible = false
 			},
+			addNewPrivateTeam() {
+				if (! this.form.privateTeamVal || ! this.form.privateTeamLabel) {
+					this.$notify({
+						title: '警告',
+						message: '队伍Id和队伍名不能为空',
+						type: 'warning'
+					})
+					return
+				}
+
+				this.stores.privateTeams.push({
+					value: this.form.privateTeamVal,
+					label: this.form.privateTeamLabel,
+				})
+				this.dialogPrivateTeamFormVisible = false
+			},
 			format(percentage) {
 				return `${this.expPerSecond}(s) / ${this.nextLevelUpAt} / ${percentage}%`
 			},
@@ -1049,16 +1140,19 @@ let who_interval = setInterval(function () {
 			},
 			applyBattleSchedules() {
 				this.laterInstances.map(instance => instance.clear())
+				this.laterInstances = []
 
-				this.stores.battleSchedules.map(s => {
-					log('load auto farm screen ' + s.screenName)
-					this.laterInstances.push(
-						later.setInterval(function () {
-							log('auto select screen ' + s.screenName)
-							selectBatIdFunc(s.screenId, s.screenName)
-						}, later.parse.text(`at ${s.time}`))
-					)
-				})
+				if (this.stores.autoFarm) {
+					this.stores.battleSchedules.map(s => {
+						log('load auto farm screen ' + s.screenName)
+						this.laterInstances.push(
+							later.setInterval(function () {
+								log('auto select screen ' + s.screenName)
+								selectBatIdFunc(s.screenId, s.screenName)
+							}, later.parse.text(`at ${s.time}`))
+						)
+					})
+				}
 			},
 			getMid() {
 				return typeof global === "undefined" ? 1 : (typeof global.mid !== "undefined" ? global.mid : 1)
@@ -1091,11 +1185,131 @@ let who_interval = setInterval(function () {
 			},
 			fetchAllGoods() {
 				this.$helpers.fetchAllGoods().then(gs => this.allGoods = gs)
+			},
+			saveMemoryHandler() {
+				if (this.stores.saveMemory) {
+					// 关闭战斗信息的展示和更新
+					pomelo._callbacks.onRoundBatEnd.splice(0, 1)
+					pomelo._callbacks.onStartBat.splice(0, 1)
+				}
 			}
 		}
 	})
 
 	// 自动帮派任务
 	who_app.switchAutoFation()
+
+	let tempThrottle = _.throttle(function () {
+		who_app.stores.autoBattle = true
+	}, 8100, {
+		leading: false
+	})
+
+	let ws = createWs(who_app.stores.privateTeam)
+
+	function createWs(teamId) {
+		if (! teamId) {
+			return null
+		}
+
+		let ws = new ReconnectingWebSocket(`ws://frp4.ioiox.com:61033`)
+
+		ws.onopen = function () {
+			ws.send(JSON.stringify({
+				type: "login",
+				uid: who_user_id,
+				gid: teamId
+			}))
+		}
+
+		ws.onmessage = function (event) {
+			let from, to, type, action
+			({from, to, type, action} = JSON.parse(event.data))
+			if (type === "ping") {
+				return
+			}
+
+			console.log(from, to, type, action)
+
+			if (type === "ydxx-message") {
+				if (action === "requestJoinInTeam") {
+					if (! who_app.isTeamLeader) {
+						return
+					}
+
+					showMyTeamFunc(1)
+					who_app.stores.autoBattle = false
+
+					// 切换至 深渊幻镜
+					let cbatid = "5ef9ff6669e97e5e22ccd5c5"
+					routeHandlers.switchCombatScreen({
+						cbatid: "5ef9ff6669e97e5e22ccd5c5"
+					}).then(res => {
+						console.log(res)
+
+						let name = "深渊幻镜"
+
+						layer.msg(`更换场景【${name}】`, {
+							offset: '50%'
+						});
+						$("#bat-screen-id").text(name)
+						$("#bat-screen-id-h").val(cbatid)
+
+						tempThrottle()
+
+						ws.send(JSON.stringify({
+							type: "ydxx-message",
+							from: who_user_id,
+							to: from,
+							action: "approvedToJoinInTeam",
+						}))
+					})
+				}
+
+				if (action === "approvedToJoinInTeam") {
+					let team = GM_getValue("team")
+					routeHandlers.addTeam({
+						tid: team.id
+					}).then(res => {
+						console.log(res)
+
+						ws.send(JSON.stringify({
+							type: "ydxx-message",
+							from: who_user_id,
+							to: from,
+							action: "joinInTeam",
+						}))
+					})
+				}
+
+				if (action === "joinInTeam") {
+					showMyTeamFunc(0)
+					// 切回 丛林
+					sleep(1100).then(() => {
+						let cbatid = "5eef4182c163cd9c0693e02e"
+
+						routeHandlers.switchCombatScreen({
+							cbatid
+						}).then(res => {
+							console.log(res)
+
+							let name = "丛林仙境"
+
+							layer.msg(`更换场景【${name}】`, {
+								offset: '50%'
+							});
+							$("#bat-screen-id").text(name)
+							$("#bat-screen-id-h").val(cbatid)
+
+							tempThrottle()
+						})
+					})
+				}
+			}
+		}
+
+		return ws
+	}
+
 }, 1000)
 
