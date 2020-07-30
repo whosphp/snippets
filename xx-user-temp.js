@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         yunding2.0-dev
+// @name         yunding2.0
 // @namespace    http://tampermonkey.net/
 // @version      1.1.10
 // @description  helper js
@@ -13,10 +13,10 @@
 // @grant        GM_getValue
 // @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
-// @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.min.js
-// @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
-// @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
-// @require      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
+// @require      https://unpkg.com/vue@2.6.11/dist/vue.min.js
+// @require      https://unpkg.com/element-ui@2.13.2/lib/index.js
+// @require      https://unpkg.com/later@1.2.0/later.min.js
+// @require      https://unpkg.com/lodash@4.17.19/lodash.min.js
 // @require      https://unpkg.com/reconnecting-websocket@4.4.0/dist/reconnecting-websocket-iife.js
 // @run-at       document-start
 // ==/UserScript==
@@ -182,7 +182,7 @@ let who_interval = setInterval(function () {
 
 	console.log('start loading...')
 
-	$('head').append(`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/theme-chalk/index.css">`)
+	$('head').append(`<link rel="stylesheet" href="https://unpkg.com/element-ui@2.13.2/lib/theme-chalk/index.css">`)
 	$('head').append(`
 <style>
 	.el-table--mini table {
