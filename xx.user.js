@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.10
+// @version      1.1.11
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -13,11 +13,11 @@
 // @grant        GM_getValue
 // @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
-// @require      https://unpkg.com/vue@2.6.11/dist/vue.min.js
-// @require      https://unpkg.com/element-ui@2.13.2/lib/index.js
-// @require      https://unpkg.com/later@1.2.0/later.min.js
-// @require      https://unpkg.com/lodash@4.17.19/lodash.min.js
-// @require      https://unpkg.com/reconnecting-websocket@4.4.0/dist/reconnecting-websocket-iife.js
+// @require      https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.min.js
+// @require      https://cdn.jsdelivr.net/npm/element-ui@2.13.2/lib/index.js
+// @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
+// @require      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
+// @require      https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/dist/reconnecting-websocket-iife.min.js
 // @run-at       document-start
 // ==/UserScript==
 unsafeWindow.who_user = null
@@ -390,7 +390,7 @@ let who_interval = setInterval(function () {
 			{{ sch.time + ' : ' + sch.screenName }}
 	  	</div>
 	  	<div v-if="stores.fallbackId">
-	  		fallback : {{ fallbackName }} <el-button @click="dialogFallbackFormVisible = true">修改</el-button>
+	  		fallback : {{ fallbackName }} <el-button @click="dialogFallbackFormVisible = true" size="mini">修改</el-button>
 		</div>
 	</el-card>
 	<el-table :show-header="false"
@@ -1206,6 +1206,8 @@ let who_interval = setInterval(function () {
 	})
 
 	let ws = createWs(who_app.stores.privateTeam)
+	let currentBattleScreenId
+	let currentBattleScreenName
 
 	function createWs(teamId) {
 		if (! teamId) {
@@ -1225,6 +1227,7 @@ let who_interval = setInterval(function () {
 		ws.onmessage = function (event) {
 			let from, to, type, action
 			({from, to, type, action} = JSON.parse(event.data))
+			// 服务端的心跳
 			if (type === "ping") {
 				return
 			}
@@ -1235,6 +1238,12 @@ let who_interval = setInterval(function () {
 				if (action === "requestJoinInTeam") {
 					if (! who_app.isTeamLeader) {
 						return
+					}
+
+					// 记录当前场景
+					if ($("#bat-screen-id-h").val() !== "5ef9ff6669e97e5e22ccd5c5") {
+						currentBattleScreenId = $("#bat-screen-id-h").val()
+						currentBattleScreenName = $("#bat-screen-id").text()
 					}
 
 					showMyTeamFunc(1)
@@ -1284,16 +1293,24 @@ let who_interval = setInterval(function () {
 
 				if (action === "joinInTeam") {
 					showMyTeamFunc(0)
-					// 切回 丛林
+					// 切回之前的场景
 					sleep(1100).then(() => {
-						let cbatid = "5eef4182c163cd9c0693e02e"
+						let cbatid, name
+						if (currentBattleScreenId) {
+							cbatid = currentBattleScreenId
+							name = currentBattleScreenName
+						} else if (who_app.stores.fallbackId) {
+							cbatid = who_app.stores.fallbackId
+							name = who_app.stores.fallbackName
+						} else {
+							cbatid = "5eef4182c163cd9c0693e02e"
+							name = "丛林仙境"
+						}
 
 						routeHandlers.switchCombatScreen({
 							cbatid
 						}).then(res => {
 							console.log(res)
-
-							let name = "丛林仙境"
 
 							layer.msg(`更换场景【${name}】`, {
 								offset: '50%'
