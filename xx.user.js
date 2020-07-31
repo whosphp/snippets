@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.11
+// @version      1.1.12
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -141,7 +141,7 @@ let who_interval = setInterval(function () {
 	// 下载地图
 	GM_xmlhttpRequest({
 		method: "GET",
-		url: "https://gitee.com/doctor51/static/raw/master/roads.json",
+		url: "https://cdn.jsdelivr.net/gh/whosphp/static/roads.json",
 		responseType: "json",
 		onload: function (response) {
 			({roads, maps} = response.response)
@@ -259,35 +259,54 @@ let who_interval = setInterval(function () {
 		</el-switch>
 	</el-row>
 	<el-row>
-		开黑(换队刷新)
-		<el-select v-model="stores.privateTeam" placeholder="请选择" size="mini" style="width: 120px;">
-			<el-option
-				v-for="team in stores.privateTeams"
-				:key="team.value"
-				:label="team.label"
-				:value="team.value">
-			</el-option>
-  		</el-select>
-  		<el-button style="float: right; padding: 3px 0" type="text"
-				@click="dialogPrivateTeamFormVisible = true">
-				新增
-		</el-button>
-		<el-dialog title="新增队伍" :visible.sync="dialogPrivateTeamFormVisible" :modal="false" :append-to-body="true">
-			<el-form :model="form" label-width="120px">
-				<el-form-item label="队伍Id">
-					<el-input v-model="form.privateTeamVal"></el-input>
-			    </el-form-item>
-			    <el-form-item label="队伍名">
-					<el-input v-model="form.privateTeamLabel"></el-input>
-			    </el-form-item>
-			</el-form>
-
-			<div slot="footer" class="dialog-footer">
-				<el-button type="primary" @click="dialogPrivateTeamFormVisible = false">取消</el-button>
-				<el-button type="success" @click="addNewPrivateTeam">确定</el-button>
-			</div>
-		</el-dialog>
+		<span style="color: red;">fallback(默认副本/必选)</span>
+		<el-select v-model="stores.fallbackId" size="mini" style="width: 120px;" placeholder="请选择">
+			<el-option v-for="screen in battleScreens" :key="screen._id" :label="screen.name" :value="screen._id"></el-option>
+		</el-select>
 	</el-row>
+	<el-card class="box-card" :body-style="{ padding: '5px' }">
+		<div slot="header" class="clearfix">
+			<span>固定队配置</span>
+			<el-button style="float: right; padding: 3px 0" type="text"
+					@click="dialogPrivateTeamFormVisible = true">
+					新增
+			</el-button>
+			<el-dialog title="新增队伍" :visible.sync="dialogPrivateTeamFormVisible" :modal="false" :append-to-body="true">
+				<el-form :model="form" label-width="120px">
+					<el-form-item label="队伍Id">
+						<el-input v-model="form.privateTeamVal"></el-input>
+					</el-form-item>
+					<el-form-item label="队伍名">
+						<el-input v-model="form.privateTeamLabel"></el-input>
+					</el-form-item>
+				</el-form>
+	
+				<div slot="footer" class="dialog-footer">
+					<el-button type="primary" @click="dialogPrivateTeamFormVisible = false">取消</el-button>
+					<el-button type="success" @click="addNewPrivateTeam">确定</el-button>
+				</div>
+			</el-dialog>
+		</div>
+		<div>
+			我是队长
+			<el-switch
+				v-model="stores.isStaticTeamLeader"
+				active-color="#13ce66"
+				inactive-color="#ff4949">
+			</el-switch>
+		</div>
+		<div>
+			选择队伍
+			<el-select v-model="stores.privateTeam" placeholder="请选择" size="mini" style="width: 120px;">
+				<el-option
+					v-for="team in stores.privateTeams"
+					:key="team.value"
+					:label="team.label"
+					:value="team.value">
+				</el-option>
+			</el-select>
+		</div>
+	</el-card>
 	<el-row>
 		自动帮派
 		<el-switch
@@ -366,18 +385,6 @@ let who_interval = setInterval(function () {
 				active-color="#13ce66"
 				inactive-color="#ff4949">
 			</el-switch>
-			<el-dialog title="请选择Fallback" :visible.sync="dialogFallbackFormVisible" :modal="false" :append-to-body="true">
-				<el-form label-width="120px">
-					<el-form-item label="fallback">
-						<el-select v-model="stores.fallbackId" style="width: 100%;">
-							<el-option v-for="screen in battleScreens" :key="screen._id" :label="screen.name" :value="screen._id"></el-option>
-						</el-select>
-					</el-form-item>
-				</el-form>
-				<div slot="footer" class="dialog-footer">
-					<el-button type="primary" @click="dialogFallbackFormVisible = false">确定</el-button>
-				</div>
-			</el-dialog>
 
 			<el-button v-if="stores.autoFarm" style="float: right; padding: 3px 0" type="text"
 				@click="stores.battleSchedules = []">
@@ -416,9 +423,6 @@ let who_interval = setInterval(function () {
 	  	<div v-for="sch in stores.battleSchedules" class="text item">
 			{{ sch.time + ' : ' + sch.screenName }}
 	  	</div>
-	  	<div v-if="stores.fallbackId">
-	  		fallback : {{ fallbackName }} <el-button @click="dialogFallbackFormVisible = true" size="mini">修改</el-button>
-		</div>
 	</el-card>
 	<el-table :show-header="false"
 		  	:data="latestBatchLogs"
@@ -675,7 +679,6 @@ let who_interval = setInterval(function () {
 				batLogs: [],
 				battleScreens: [],
 				dialogScheduleFormVisible: false,
-				dialogFallbackFormVisible: false,
 				dialogShowDetailLogVisible: false,
 				dialogAutoFationSettings: false,
 				dialogPrivateTeamFormVisible: false,
@@ -715,6 +718,7 @@ let who_interval = setInterval(function () {
 					autoFation: stores.hasOwnProperty("autoFation") ? stores.autoFation : false,
 					allFationTasks: stores.hasOwnProperty("allFationTasks") ? stores.allFationTasks : [],
 					saveMemory: stores.hasOwnProperty("saveMemory") ? stores.saveMemory : false,
+					isStaticTeamLeader: stores.hasOwnProperty("isStaticTeamLeader") ? stores.isStaticTeamLeader : false,
 					privateTeam: stores.hasOwnProperty("privateTeam") ? stores.privateTeam : "",
 					privateTeams: stores.hasOwnProperty("privateTeams") ? stores.privateTeams : [],
 				}
@@ -859,12 +863,18 @@ let who_interval = setInterval(function () {
 						this.myTeam = res.data.myTeam ? res.data.myTeam : {}
 
 						if (! res.data.myTeam) {
-							// 广播至当前组
-							ws && ws.send(JSON.stringify({
-								type: "ydxx-message",
-								from: who_user_id,
-								action: "requestJoinInTeam",
-							}))
+							if (this.stores.isStaticTeamLeader) {
+								// 创建队伍
+								createdTeamFunc()
+								sleep(500).then(_ => selectBatIdFunc(this.stores.fallbackId, this.fallbackName))
+							} else {
+								// 广播至当前组
+								ws && ws.send(JSON.stringify({
+									type: "ydxx-message",
+									from: who_user_id,
+									action: "requestJoinInTeam",
+								}))
+							}
 						} else {
 							this.isTeamLeader = res.data.myTeam.users[0]._id === who_user_id
 						}
@@ -878,6 +888,12 @@ let who_interval = setInterval(function () {
 				setInterval(_ => {
 					this.reloadIfOffline()
 				}, 25000)
+			}
+
+			if (! this.stores.fallbackId) {
+				this.$alert('请设置fallback (很重要)', '提示', {
+					confirmButtonText: '确定'
+				})
 			}
 		},
 		watch: {
@@ -912,7 +928,11 @@ let who_interval = setInterval(function () {
 				handler: function () {
 					if (this.stores.autoFarm) {
 						if (! this.stores.fallbackId) {
-							this.dialogFallbackFormVisible = true
+							this.$notify({
+								title: '警告',
+								message: '请设置fallback',
+								type: 'warning'
+							})
 
 							this.stores.autoFarm = false
 
@@ -937,6 +957,9 @@ let who_interval = setInterval(function () {
 			},
 			"stores.battleSchedules": function () {
 				this.applyBattleSchedules()
+				this.persistentStores()
+			},
+			"stores.isStaticTeamLeader": function (n, o) {
 				this.persistentStores()
 			},
 			"stores.privateTeam": function (n, o) {
@@ -1236,7 +1259,7 @@ let who_interval = setInterval(function () {
 
 			if (type === "ydxx-message") {
 				if (action === "requestJoinInTeam") {
-					if (! who_app.isTeamLeader) {
+					if (! who_app.isTeamLeader && ! who_app.stores.isStaticTeamLeader) {
 						return
 					}
 
