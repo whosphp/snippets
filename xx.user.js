@@ -38,11 +38,38 @@ if (location.href.indexOf('login') > -1 && document.referrer === (location.origi
 let who_interval = setInterval(function () {
 	'use strict'
 
+	const routes = [
+		["connector.userHandler.getUserTask", "getUserTask"],
+		["connector.fationHandler.getFationTask", "getFationTask"],
+		["connector.fationHandler.closeUserTask", "closeUserTask"],
+		["connector.playerHandler.payUserTask", "payUserTask"],
+		["connector.teamHandler.getTeamList", "getTeamList"],
+		["connector.userHandler.userInfo", "userInfo"],
+		["connector.playerHandler.moveToNewMap", "moveToNewMap"],
+		["connector.userHandler.getMyGoods", "getMyGoods"],
+		["connector.userHandler.useGoods", "useGoods"],
+		["connector.userHandler.wbt", "wbt"],
+		["connector.teamHandler.switchCombatScreen", "switchCombatScreen"],
+		["connector.teamHandler.addTeam", "addTeam"],
+	]
+	let routeHandlers = {}
+	routes.forEach(route => {
+		routeHandlers[route[1]] = function (params) {
+			params = params || {}
+
+			return new Promise((resolve, reject) => {
+				pomelo.request(route[0], params, function (data) {
+					resolve(data)
+				})
+			})
+		}
+	})
+
 	function fetchUserInfo() {
-		pomelo.request("connector.userHandler.userInfo", {}, data => {
-			if (data.code === 200) {
-				unsafeWindow.who_user = data.user
-				who_user.nextLevelGetExp = data.nextLevelGetExp
+		routeHandlers.userInfo().then(res => {
+			if (res.code === 200) {
+				unsafeWindow.who_user = res.user
+				who_user.nextLevelGetExp = res.nextLevelGetExp
 			}
 		})
 	}
@@ -431,33 +458,6 @@ let who_interval = setInterval(function () {
 			console.log(str)
 		}
 	}
-
-	const routes = [
-		["connector.userHandler.getUserTask", "getUserTask"],
-		["connector.fationHandler.getFationTask", "getFationTask"],
-		["connector.fationHandler.closeUserTask", "closeUserTask"],
-		["connector.playerHandler.payUserTask", "payUserTask"],
-		["connector.teamHandler.getTeamList", "getTeamList"],
-		["connector.userHandler.userInfo", "userInfo"],
-		["connector.playerHandler.moveToNewMap", "moveToNewMap"],
-		["connector.userHandler.getMyGoods", "getMyGoods"],
-		["connector.userHandler.useGoods", "useGoods"],
-		["connector.userHandler.wbt", "wbt"],
-		["connector.teamHandler.switchCombatScreen", "switchCombatScreen"],
-		["connector.teamHandler.addTeam", "addTeam"],
-	]
-	let routeHandlers = {}
-	routes.forEach(route => {
-		routeHandlers[route[1]] = function (params) {
-			params = params || {}
-
-			return new Promise((resolve, reject) => {
-				pomelo.request(route[0], params, function (data) {
-					resolve(data)
-				})
-			})
-		}
-	})
 
 	const helpers = {
 		fetchAllGoods: async function () {
