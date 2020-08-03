@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.13
+// @version      1.1.14
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -1248,8 +1248,8 @@ let who_interval = setInterval(function () {
 		}
 
 		ws.onmessage = function (event) {
-			let from, to, type, action
-			({from, to, type, action} = JSON.parse(event.data))
+			let from, to, type, action, data
+			({from, to, type, action, data} = JSON.parse(event.data))
 			// 服务端的心跳
 			if (type === "ping") {
 				return
@@ -1289,19 +1289,22 @@ let who_interval = setInterval(function () {
 
 						tempThrottle()
 
+						let team = GM_getValue("team")
 						ws.send(JSON.stringify({
 							type: "ydxx-message",
 							from: who_user_id,
 							to: from,
 							action: "approvedToJoinInTeam",
+							data: {
+								teamId: team.id
+							}
 						}))
 					})
 				}
 
 				if (action === "approvedToJoinInTeam") {
-					let team = GM_getValue("team")
 					routeHandlers.addTeam({
-						tid: team.id
+						tid: data.teamId
 					}).then(res => {
 						console.log(res)
 
