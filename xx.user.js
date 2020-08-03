@@ -18,6 +18,7 @@
 // @require      https://cdn.jsdelivr.net/npm/later@1.2.0/later.min.js
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
 // @require      https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/dist/reconnecting-websocket-iife.min.js
+// @connect      cdn.jsdelivr.net
 // @run-at       document-start
 // ==/UserScript==
 unsafeWindow.who_user = null
