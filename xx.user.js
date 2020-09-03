@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.18
+// @version      1.1.19-dev
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -52,6 +52,10 @@ let who_interval = setInterval(function () {
 		["connector.userHandler.wbt", "wbt"],
 		["connector.teamHandler.switchCombatScreen", "switchCombatScreen"],
 		["connector.teamHandler.addTeam", "addTeam"],
+		["connector.teamHandler.startCombat", "startCombat"], // 默认战斗(刷副本)
+		["connector.teamHandler.startCombatTower", "startCombatTower"], // 攻打封神塔
+		["connector.teamHandler.startCombatStar", "startCombatStar"], // 杀星
+		["connector.teamHandler.startCombatBoss", "startCombatBoss"], // 攻打世界boss
 	]
 	let routeHandlers = {}
 	routes.forEach(route => {
@@ -410,7 +414,7 @@ let who_interval = setInterval(function () {
 					</el-form-item>
 					<el-form-item label="副本">
 						<el-select v-model="form.screenId" style="width: 100%;">
-							<el-option v-for="screen in battleScreens" :key="screen._id" :label="screen.name" :value="screen._id"></el-option>
+							<el-option v-for="screen in allScreens" :key="screen._id" :label="screen.name" :value="screen._id"></el-option>
 						</el-select>
 					</el-form-item>
 				</el-form>
@@ -661,6 +665,9 @@ let who_interval = setInterval(function () {
 
 	let stores = GM_getValue(getKey('stores'), {})
 
+	// 设置时区
+	later.date.localTime()
+
 	Vue.prototype.$helpers = helpers
 	unsafeWindow._ = _
 	unsafeWindow.who_app = new Vue({
@@ -671,6 +678,8 @@ let who_interval = setInterval(function () {
 				bat_ok: 0,
 				bat_fail: 0,
 				bat_total: 0,
+				toweringLoadingIndex: null,
+				towerBatDailyFailCount: {},
 
 				fation_task_ok: 0,
 				fation_task_fail: 0,
@@ -728,8 +737,6 @@ let who_interval = setInterval(function () {
 		mounted() {
 			this.turnOffSystemAutoBattle()
 
-			later.date.localTime()
-
 			// 如果过去五分钟无战斗, 则尝试开启战斗
 			setInterval(_ => {
 				if (this.stores.autoBattle) {
@@ -744,6 +751,9 @@ let who_interval = setInterval(function () {
 				let roundArr = res.data.round_arr
 				let roundStatus = res.data.round_status
 				let players = roundStatus.filter(s => s.is_palyer).map(s => s.name)
+				let startBatType = localStorage.getItem("startBatType")
+				let towerNum = $("#tower_num").val()
+				let towering = startBatType === "tower"
 
 				if (players.length < 5) {
 					// 定时更新成员
@@ -766,6 +776,7 @@ let who_interval = setInterval(function () {
 				if (res.data.win > 0) {
 					if (this.gracefulReload) {
 						this.pageReload()
+						return
 					}
 
 					// 保留最近50场战斗的详细记录
@@ -776,13 +787,9 @@ let who_interval = setInterval(function () {
 						log(res.data)
 					}
 
-					if (this.stores.autoBattle) {
-						log('auto start')
-						startBatFunc()
-					}
-
 					let _batLog
 					let now = moment()
+					let dateString = now.format('YYYY-MM-DD')
 
 					if (res.data.win === 1) {
 						if (res.data.exp.length === 0) {
@@ -793,8 +800,9 @@ let who_interval = setInterval(function () {
 								type: 'warning'
 							});
 
-							// 无收益自动切换为fallback副本
-							if (this.stores.autoBattle && this.stores.autoFarm && this.stores.fallbackId) {
+							// 非爬塔时, 无收益自动切换为fallback副本
+							if (!towering && this.stores.autoBattle && this.stores.autoFarm && this.stores.fallbackId) {
+								localStorage.removeItem("startBatType")
 								selectBatIdFunc(this.stores.fallbackId, this.fallbackName)
 							}
 						}
@@ -813,8 +821,38 @@ let who_interval = setInterval(function () {
 							round_num: res.data.round_num
 						}
 
+						if (towering) {
+							console.log(`第${towerNum}层:`)
+							console.log(res.data.player_reward)
+
+							// 省内存模式时需要加上, 保证塔层数+1
+							if (this.stores.saveMemory) {
+								$('#tower_num').val((~~$('#tower_num').val()) + 1)
+							}
+						}
+
 						this.bat_ok++
 					} else {
+						if (this.stores.autoBattle && this.stores.autoFarm && this.stores.fallbackId && towering) {
+							let key = `${dateString}_${towerNum}`
+
+							if (this.towerBatDailyFailCount.hasOwnProperty(key)) {
+								this.towerBatDailyFailCount[key]++
+							} else {
+								this.towerBatDailyFailCount[key] = 1
+							}
+
+							// 失败次数超过5次 则停止爬塔
+							if (this.towerBatDailyFailCount[key] > 5) {
+								this.towerBatDailyFailCount = {}
+
+								layer.close(this.toweringLoadingIndex)
+								localStorage.removeItem("startBatType")
+								selectBatIdFunc(this.stores.fallbackId, this.fallbackName)
+							}
+						}
+
+
 						_batLog = {
 							win: false,
 							atTime: now.format('HH:mm:ss'),
@@ -827,6 +865,11 @@ let who_interval = setInterval(function () {
 						}
 
 						this.bat_fail++
+					}
+
+					if (this.stores.autoBattle) {
+						log('auto start')
+						startBatFunc()
 					}
 
 					if (this.batLogs.unshift(_batLog) > 33) {
@@ -990,12 +1033,7 @@ let who_interval = setInterval(function () {
 		},
 		computed: {
 			battleScreensKeyById() {
-				let data = {}
-				this.battleScreens.map(s => {
-					data[s._id] = s
-				})
-
-				return data
+				return _.keyBy(this.allScreens, '_id')
 			},
 			fallbackName() {
 				let screen = this.battleScreens.find(s => s._id === this.stores.fallbackId)
@@ -1005,6 +1043,14 @@ let who_interval = setInterval(function () {
 				}
 
 				return screen.name
+			},
+			allScreens() {
+				return this.battleScreens.concat([
+					{
+						_id: "tower",
+						name: "封神塔",
+					}
+				])
 			},
 			bat_rate() {
 				if (this.bat_total) {
@@ -1168,11 +1214,37 @@ let who_interval = setInterval(function () {
 
 				if (this.stores.autoFarm) {
 					this.stores.battleSchedules.map(s => {
-						log('load auto farm screen ' + s.screenName)
+						console.log(`load auto farm screen ${s.screenName} at ${s.time}`)
 						this.laterInstances.push(
-							later.setInterval(function () {
-								log('auto select screen ' + s.screenName)
+							later.setInterval(() => {
+								console.log('auto select screen ' + s.screenName)
 								selectBatIdFunc(s.screenId, s.screenName)
+
+								if (s.screenId === "tower") {
+									// 激活 驿站组队 界面
+									$("#team-tap").click()
+
+									this.toweringLoadingIndex = layer.load(2, {
+										shade: [0.6, '#fff'],
+										content:'爬塔中...',
+										success: function (layerContentStyle) {
+											layerContentStyle.find('.layui-layer-content').css({
+												'padding-top': '35px',
+												'text-align': 'left',
+												'width': '76px',
+												'background-position': "top",
+											});
+										}
+									})
+
+									localStorage.setItem("startBatType", "tower")
+								} else {
+									layer.close(this.toweringLoadingIndex)
+									this.toweringLoadingIndex = null
+
+									localStorage.removeItem("startBatType")
+								}
+
 							}, later.parse.text(`at ${s.time}`))
 						)
 					})
