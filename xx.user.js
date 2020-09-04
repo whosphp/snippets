@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.21
+// @version      1.1.22
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -29,10 +29,16 @@ unsafeWindow.GM_getValue = GM_getValue
  * run at /login page
  * 如果是从主页面 / 跳转至 /login 页面 且在 /login 页面停留超过 3 秒未跳转, 则尝试 重新登陆
  */
-if (location.href.indexOf('login') > -1 && document.referrer === (location.origin + '/')) {
-	setTimeout(function () {
+if (location.href.indexOf('login') > -1) {
+	if (document.referrer === (location.origin + '/')) {
+		setTimeout(function () {
+			location.href = '/login?is_r=1'
+		}, 3000)
+	}
+
+	setInterval(function () {
 		location.href = '/login?is_r=1'
-	}, 3000)
+	}, 60000)
 }
 
 // run at / page
