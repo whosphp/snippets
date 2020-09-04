@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.19
+// @version      1.1.20
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -91,6 +91,9 @@ let who_interval = setInterval(function () {
 			clearInterval(who_interval)
 		}
 	}
+
+	// 在地图之间切换的间隔时间 (单位: 毫秒)
+	const SWITCH_MAP_INTERNAL_TIME = 1010
 
 	// 注入hooks
 	let oldRequest = pomelo.request
@@ -201,7 +204,7 @@ let who_interval = setInterval(function () {
 	async function autoMove(path) {
 		log(path)
 		for (let i = 0; i < path.length; i++) {
-			await sleep(4010)
+			await sleep(SWITCH_MAP_INTERNAL_TIME)
 			let moveRes = await routeHandlers.moveToNewMap({mid: path[i]})
 			log(moveRes)
 			if (moveRes.code === 200) {
