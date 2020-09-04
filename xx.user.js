@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.19-dev
+// @version      1.1.19
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -146,7 +146,7 @@ let who_interval = setInterval(function () {
 	// 下载地图
 	GM_xmlhttpRequest({
 		method: "GET",
-		url: "https://cdn.jsdelivr.net/gh/whosphp/static/roads-20200824.json",
+		url: "https://cdn.jsdelivr.net/gh/whosphp/ydxx-node/public/roads.json",
 		responseType: "json",
 		onload: function (response) {
 			({roads, maps} = response.response)
