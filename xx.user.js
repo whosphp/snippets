@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.20
+// @version      1.1.21
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -113,6 +113,20 @@ let who_interval = setInterval(function () {
 				}
 			}
 		},
+		"connector.teamHandler.startCombatBoss": {
+			log: false,
+			callback(res) {
+				console.log(res)
+
+				if (res.code !== 200) {
+					console.log(res.msg)
+					if (res.msg === "魔灵已遁入魔界") {
+						// 退出打boss模式
+						localStorage.removeItem("startBatType")
+					}
+				}
+			}
+		}
 	}
 	pomelo.request = function(route, msg, cb) {
 		let shouldLog = routesToHook.hasOwnProperty(route) && routesToHook[route].log
@@ -740,7 +754,7 @@ let who_interval = setInterval(function () {
 		mounted() {
 			this.turnOffSystemAutoBattle()
 
-			// 如果过去五分钟无战斗, 则尝试开启战斗
+			// 如果过去五分钟无战斗, 则尝试开启普通战斗
 			setInterval(_ => {
 				if (this.stores.autoBattle) {
 					if (this.batLogs.length === 0
