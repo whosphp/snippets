@@ -37,6 +37,8 @@ if (location.href.indexOf('login') > -1) {
 	}
 
 	setInterval(function () {
+		sendEmailCodeFunc()
+
 		location.href = '/login?is_r=1'
 	}, 60000)
 }
