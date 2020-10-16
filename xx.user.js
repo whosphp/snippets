@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         yunding2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1.22
+// @version      1.1.23
 // @description  helper js
 // @author       叶天帝
 // @match        *://yundingxx.com:3366/*
@@ -1333,7 +1333,7 @@ let who_interval = setInterval(function () {
 			return null
 		}
 
-		let ws = new ReconnectingWebSocket(`ws://frp4.ioiox.com:61033`)
+		let ws = new ReconnectingWebSocket(`ws://81.68.85.170:3000`)
 
 		ws.onopen = function () {
 			ws.send(JSON.stringify({
